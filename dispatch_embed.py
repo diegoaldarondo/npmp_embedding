@@ -137,9 +137,10 @@ def dispatch_npmp_embed():
     parser.add_argument(
         "--import-dir",
         dest="import_dir",
-        default="/n/holylfs02/LABS/olveczky_lab/Diego/code/dm/__npmp_embedding/rodent_tracking_model_16212280_3_no_noise",
+        default="/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_no_noise",
         help="path to rodent tracking model.",
     )
+    # "/n/holylfs02/LABS/olveczky_lab/Diego/code/dm/__npmp_embedding/rodent_tracking_model_16212280_3_no_noise",
     parser.add_argument(
         "--stac-params", dest="stac_params", help="Path to stac params (.yaml).",
     )
