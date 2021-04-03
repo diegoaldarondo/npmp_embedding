@@ -3,6 +3,7 @@
 Attributes:
     FPS (int): Frame rate of the video
     IMAGE_SIZE (list): Dimensions of images in video
+    mjlib (module): Shorthand for mjbindings.mjlib
     OBSERVATIONS (list): Model observations
     STATES (list): Model States
 """
@@ -13,6 +14,9 @@ from dm_control.locomotion.walkers import rodent
 from dm_control.locomotion.arenas import floors
 from dm_control.locomotion.tasks.reference_pose import tracking
 from dm_control import composer
+from dm_control.mujoco.wrapper import mjbindings
+from dm_control.utils import transformations
+from scipy.io import loadmat
 import pickle
 import mocap_preprocess
 import numpy as np
@@ -35,6 +39,8 @@ import yaml
 import tensorflow.compat.v1 as tf
 from tensorflow.python.ops.parallel_for.gradients import jacobian
 from typing import Dict, List, Text, Tuple
+
+mjlib = mjbindings.mjlib
 
 OBSERVATIONS = [
     "walker/actuator_activation",
@@ -69,7 +75,7 @@ IMAGE_SIZE = [480, 640, 3]
 # IMAGE_SIZE = [368, 368, 3]
 
 
-def load_params(param_path: Text):
+def load_params(param_path: Text) -> Dict:
     """Load stac parameters for the animal.
 
 
@@ -77,7 +83,7 @@ def load_params(param_path: Text):
         param_path (Text): Path to .yaml file specifying animal parameters.
 
     Returns:
-        TYPE: Description
+        Dict: Dictionary of stac parameters.
     """
     with open(param_path, "r") as infile:
         try:
@@ -96,7 +102,7 @@ def walker_fn(**kwargs) -> rodent.Rat:
     Returns:
         rodent.Rat: Rat walker.
     """
-    return rodent.Rat(torque_actuators=True, foot_mods=True, **kwargs)
+    return rodent.Rat(torque_actuators=False, foot_mods=True, **kwargs)
 
 
 class NpmpEmbedder:
@@ -710,18 +716,13 @@ class NpmpEmbedder:
         savemat(
             save_path,
             {
-                "latent": np.array(self.latent_list),
-                "prior_mean": np.array(self.prior_mean),
-                "latent_noise": np.array(self.latent_noise),
                 "level_1_scale": np.array(self.level_1_scale),
                 "level_1_loc": np.array(self.level_1_loc),
                 "latent_sample": np.array(self.latent_sample),
-                "latent_mean": np.array(self.latent_mean_list),
                 "reward": np.array(self.rew_list),
                 "action_mean": np.array(self.action_mean),
                 "action_names": action_names,
                 "jacobian_latent_mean": np.array(self.jacobian_latent_mean),
-                "jacobian_latent_scale": np.array(self.jacobian_latent_scale),
                 "walker_body_sites": np.array(self.walker_body_sites),
             },
         )
