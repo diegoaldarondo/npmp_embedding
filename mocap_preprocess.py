@@ -1,3 +1,4 @@
+"""Preprocessing for embedding motion capture/dannce data."""
 import dm_control
 import h5py
 from dm_control.locomotion.mocap import cmu_mocap_data
@@ -12,21 +13,55 @@ import numpy as np
 import sys
 import os
 import argparse
+from typing import Text, List, Tuple, Dict, Union
 
 
 class NpmpPreprocessor:
+
+    """Handle preprocessing for npmp/comic data
+
+    Attributes:
+        adjust_z_offset (float): Z-offset in m
+        arena (floors.Floor): Basic floor
+        clip_length (int, optional): Length of clip
+        dt (float, optional): Timestep between qpos entries.
+        env (composer.Env): Basic environment
+        max_qvel (float, optional): Max allowed qvelocity
+        qpos (np.ndarray): Quaternion position of the reference
+        ref_steps (Tuple, optional): Reference steps.
+        save_file (Text): Path to Folder in which to save hdf5 dataset.
+        stac_path (Text): Path to stac file containing reference.
+        start_step (int, optional): First frame in rollout
+        task (composer.Task): Null task.
+        verbatim (bool, optional): Process in verbatim mode.
+        walker (rodent.Rat): Rodent walker
+    """
+
     def __init__(
         self,
-        stac_path,
-        save_file,
-        start_step=0,
-        clip_length=2500,
-        max_qvel=20,
-        dt=0.02,
-        adjust_z_offset=0.0,
-        verbatim=False,
-        ref_steps=(1, 2, 3, 4, 5),
+        stac_path: Text,
+        save_file: Text,
+        start_step: int = 0,
+        clip_length: int = 2500,
+        max_qvel: float = 20.0,
+        dt: float = 0.02,
+        adjust_z_offset: float = 0.0,
+        verbatim: bool = False,
+        ref_steps: Tuple = (1, 2, 3, 4, 5),
     ):
+        """Summary
+
+        Args:
+            stac_path (Text): Path to stac file containing reference.
+            save_file (Text): Path to Folder in which to save hdf5 dataset.
+            start_step (int, optional): First frame in rollout
+            clip_length (int, optional): Length of clip
+            max_qvel (float, optional): Max allowed qvelocity
+            dt (float, optional): Timestep
+            adjust_z_offset (float, optional): Z-offset in m
+            verbatim (bool, optional): Process in verbatim mode.
+            ref_steps (Tuple, optional): Reference steps.
+        """
         self.stac_path = stac_path
         self.save_file = save_file
         self.start_step = start_step
@@ -46,19 +81,22 @@ class NpmpPreprocessor:
             # else:
             #     self.qpos = in_dict["qpos"][self.start_step:, :]
 
-        self.walker = rodent.Rat(torque_actuators=True, foot_mods=True)
+        self.walker = rodent.Rat(torque_actuators=False, foot_mods=True)
         self.arena = floors.Floor(size=(10.0, 10.0))
         self.walker.create_root_joints(self.arena.attach(self.walker))
         self.task = composer.NullTask(self.arena)
         self.env = composer.Environment(self.task)
 
     def extract_features(self):
+        """Extract featires from the reference qpos"""
         n_steps = self.qpos.shape[0]
         max_reference_index = np.max(self.ref_steps) + 1
         with h5py.File(self.save_file, "w") as file:
             for start_step in range(0, n_steps, self.clip_length):
                 print(start_step, flush=True)
-                end_step = np.min([start_step + self.clip_length + max_reference_index, n_steps])
+                end_step = np.min(
+                    [start_step + self.clip_length + max_reference_index, n_steps]
+                )
                 mocap_features = get_mocap_features(
                     self.qpos[start_step:end_step, :],
                     self.walker,
@@ -73,7 +111,14 @@ class NpmpPreprocessor:
                 mocap_features["markers"] = []
                 self.save_features(file, mocap_features, "clip_%d" % (start_step))
 
-    def save_features(self, file, mocap_features, clip_name):
+    def save_features(self, file: h5py.File, mocap_features: Dict, clip_name: Text):
+        """Save features to hdf5 dataset
+
+        Args:
+            file (h5py.File): Hdf5 dataset
+            mocap_features (Dict): Features extracted through rollout
+            clip_name (Text): Name of the clip stored in the hdf5 dataset.
+        """
         clip_group = file.create_group(clip_name)
         n_steps = len(mocap_features["center_of_mass"])
         clip_group.attrs["num_steps"] = n_steps
@@ -94,16 +139,28 @@ class NpmpPreprocessor:
 
 
 class ParallelNpmpPreprocessor(NpmpPreprocessor):
+
+    """Handle preprocessing in parallel hpc batch jobs."""
+
     def __init__(self, *args, **kwargs):
+        """Initialize ParallelNpmpPreprocessor
+
+        Args:
+            *args: Arguments to NpmpPreprocessor
+            **kwargs: Keyword arguments to NpmpPreprocessor
+        """
         super(ParallelNpmpPreprocessor, self).__init__(*args, **kwargs)
 
     def extract_features(self):
+        """Extract freatures from parallelized chunks"""
         n_steps = self.qpos.shape[0]
         max_reference_index = np.max(self.ref_steps) + 1
         with h5py.File(self.save_file, "w") as file:
-            end_step = np.min([self.start_step + self.clip_length + max_reference_index, n_steps])
+            end_step = np.min(
+                [self.start_step + self.clip_length + max_reference_index, n_steps]
+            )
             mocap_features = get_mocap_features(
-                self.qpos[self.start_step:end_step, :],
+                self.qpos[self.start_step : end_step, :],
                 self.walker,
                 self.env.physics,
                 self.max_qvel,
@@ -116,7 +173,9 @@ class ParallelNpmpPreprocessor(NpmpPreprocessor):
             mocap_features["markers"] = []
             self.save_features(file, mocap_features, "clip_0")
 
+
 def parallel_submit():
+    """Submit batch preprocessing job to hpc."""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -132,7 +191,9 @@ def parallel_submit():
     dispatcher = NpmpPreprocessingDispatcher(**args.__dict__)
     dispatcher.dispatch()
 
+
 def submit():
+    """Submit single preprocessing job."""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -150,6 +211,10 @@ def submit():
 
 
 def npmp_embed_preprocessing_single_batch():
+    """CLI entrypoint to preprocess single batch.
+
+    Parameters loaded from _batch_preprocessing_args.p
+    """
     # Load in parameters to modify
     with open("_batch_preprocessing_args.p", "rb") as file:
         batch_args = pickle.load(file)
@@ -161,9 +226,31 @@ def npmp_embed_preprocessing_single_batch():
 
 
 class NpmpPreprocessingDispatcher:
+
+    """Dispatch preprocessing jobs to a hpc.
+
+    Attributes:
+        clip_end (int): Last step in clip.
+        clip_length (int): Number of steps in clip.
+        end_steps (List): End steps for each batch.
+        save_folder (Text): Folder in which to save data.
+        stac_path (Text): Path to stac file containing reference.
+        start_steps (List): Start steps for each batch.
+    """
+
     def __init__(
-        self, stac_path, save_folder, clip_length=2500,
+        self,
+        stac_path: Text,
+        save_folder: Text,
+        clip_length: int = 2500,
     ):
+        """Initialize NpmpPreprocessingDispatcher
+
+        Args:
+            stac_path (Text): Path to stac file containing reference.
+            save_folder (Text): Folder in which to save data.
+            clip_length (int, optional): Number of steps in clip.
+        """
         self.stac_path = stac_path
         self.save_folder = save_folder
         if not os.path.exists(self.save_folder):
@@ -186,13 +273,19 @@ class NpmpPreprocessingDispatcher:
             # print(batch_args)
         self.save_batch_args(batch_args)
 
-    def get_clip_end(self):
+    def get_clip_end(self) -> int:
+        """Get the last frame in the clip from the reference.
+
+        Returns:
+            int: End frame in clip.
+        """
         with open(self.stac_path, "rb") as f:
             in_dict = pickle.load(f)
             n_samples = in_dict["qpos"].shape[0]
         return n_samples
 
     def dispatch(self):
+        """Submit the job."""
         cmd = "sbatch --wait --array=0-%d multi_job_embed_preprocessing.sh" % (
             len(self.start_steps) - 1
         )
@@ -200,24 +293,42 @@ class NpmpPreprocessingDispatcher:
         print(cmd)
         sys.exit(os.WEXITSTATUS(os.system(cmd)))
 
-    def save_batch_args(self, batch_args):
+    def save_batch_args(self, batch_args: Dict):
+        """Save the batch arguments to file.
+
+        Args:
+            batch_args (Dict): Dictionary of arguments to batches.
+        """
         with open("_batch_preprocessing_args.p", "wb") as f:
             pickle.dump(batch_args, f)
 
 
 def get_mocap_features(
-    mocap_qpos,
-    walker,
+    mocap_qpos: np.ndarray,
+    walker: rodent.Rat,
     physics,
-    max_qvel,
-    dt,
-    adjust_z_offset,
-    verbatim,
-    null_xyr=False,
+    max_qvel: float,
+    dt: float,
+    adjust_z_offset: float,
+    verbatim: bool,
+    null_xyr: bool = False,
     shift_position=None,
     shift_rotation=None,
 ):
-    """Convert mocap_qpos to valid reference features."""
+    """Convert mocap_qpos to valid reference features.
+
+    Args:
+        mocap_qpos (np.ndarray): Array of qpos data
+        walker (rodent.Rat): rodent walker
+        physics (TYPE): Environment Physics instance.
+        max_qvel (float): Maximum allowable q velocity.
+        dt (float): Timestep between qpos frames.
+        adjust_z_offset (float): Adjust Z position by this amount.
+        verbatim (bool): If true, preprocess verbatim.
+        null_xyr (bool, optional): Description
+        shift_position (bool, optional): Amount by which to shift position.
+        shift_rotation (bool, optional): Amount by which to shift the rotation.
+    """
     # Clip the angles.
     joint_names = [b.name for b in walker.mocap_joints]
     joint_ranges = physics.bind(walker.mocap_joints).range
@@ -256,7 +367,7 @@ def get_mocap_features(
         right_foot_index = body_names.index("foot_R")
 
     # Padding for velocity corner case.
-    mocap_qpos = np.concatenate([mocap_qpos, mocap_qpos[-1, np.newaxis,:]], axis=0)
+    mocap_qpos = np.concatenate([mocap_qpos, mocap_qpos[-1, np.newaxis, :]], axis=0)
     print(mocap_qpos.shape)
     qvel = np.zeros(len(mocap_qpos[0]) - 1)
 
@@ -297,7 +408,6 @@ def get_mocap_features(
         mocap_features["body_quaternions"].append(xquat)
         if adjust_z_offset:
             feet_height += [xpos[left_foot_index][2], xpos[right_foot_index][2]]
-
 
     # Array
     mocap_features["position"] = np.array(mocap_features["position"])
@@ -344,15 +454,26 @@ def get_mocap_features(
 
 def set_walker(
     physics,
-    walker,
-    qpos,
-    qvel,
-    offset=0,
-    null_xyr=False,
+    walker: rodent.Rat,
+    qpos: np.ndarray,
+    qvel: np.ndarray,
+    offset: Union[float, List, np.ndarray] = 0.0,
+    null_xyr: bool = False,
     position_shift=None,
     rotation_shift=None,
 ):
-    """Set the freejoint and walker's joints angles and velocities."""
+    """Set the freejoint and walker's joints angles and velocities.
+
+    Args:
+        physics (TYPE): Environment Physics instance.
+        walker (rodent.Rat): Description
+        qpos (np.ndarray): Description
+        qvel (np.ndarray): Description
+        offset (Union[float, List, np.ndarray], optional): xyz offset
+        null_xyr (bool, optional): Description
+        position_shift (TYPE, optional): Amount by which to shift position.
+        rotation_shift (TYPE, optional): Amount by which to shift the rotation.
+    """
     qpos = qpos.copy()
     if null_xyr:
         qpos[:3] = 0.0
@@ -375,15 +496,19 @@ def set_walker(
         )
 
 
-def compute_velocity_from_kinematics(qpos_trajectory, dt):
+def compute_velocity_from_kinematics(
+    qpos_trajectory: np.ndarray, dt: float
+) -> np.ndarray:
     """Computes velocity trajectory from position trajectory.
-  Args:
-    qpos_trajectory: trajectory of qpos values T x ?
-      Note assumes has freejoint as the first 7 dimensions
-    dt: timestep between qpos entries
-  Returns:
-    Trajectory of velocities.
-  """
+
+    Args:
+        qpos_trajectory (np.ndarray): trajectory of qpos values T x ?
+          Note assumes has freejoint as the first 7 dimensions
+        dt (float): timestep between qpos entries
+
+    Returns:
+        np.ndarray: Trajectory of velocities.
+    """
     qvel_translation = (qpos_trajectory[1:, :3] - qpos_trajectory[:-1, :3]) / dt
     qvel_gyro = []
     for t in range(qpos_trajectory.shape[0] - 1):
@@ -394,7 +519,9 @@ def compute_velocity_from_kinematics(qpos_trajectory, dt):
     qvel_joints = (qpos_trajectory[1:, 7:] - qpos_trajectory[:-1, 7:]) / dt
     return np.concatenate([qvel_translation, qvel_gyro, qvel_joints], axis=1)
 
+
 def merge_preprocessed_files():
+    """CLI Entrypoint to merge preprocessed files into a single dataset."""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -404,19 +531,17 @@ def merge_preprocessed_files():
     )
     args = parser.parse_args()
 
-    files = [f for f in os.listdir(args.data_folder) if (".hdf5" in f and "total" not in f)]
-    file_ids = np.argsort([int(f.split('.')[0]) for f in files])
+    files = [
+        f for f in os.listdir(args.data_folder) if (".hdf5" in f and "total" not in f)
+    ]
+    file_ids = np.argsort([int(f.split(".")[0]) for f in files])
     files = [files[i] for i in file_ids]
     print(files)
-    with h5py.File(os.path.join(args.data_folder, "total.hdf5"), 'w') as save_file:
+    with h5py.File(os.path.join(args.data_folder, "total.hdf5"), "w") as save_file:
         for file in files:
             print(file)
-            with h5py.File(os.path.join(args.data_folder, file), 'r') as chunk:
-                clip_name = 'clip_' + file.split('.')[0]
+            with h5py.File(os.path.join(args.data_folder, file), "r") as chunk:
+                clip_name = "clip_" + file.split(".")[0]
                 # fd = save_file.create_group(clip_name)
                 # fd = save_file.create_group('clip_0')
-                chunk.copy('clip_0', save_file['/'], name=clip_name)
-
-                
-                
-
+                chunk.copy("clip_0", save_file["/"], name=clip_name)
