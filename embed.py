@@ -169,7 +169,7 @@ class NpmpEmbedder:
         max_action: float = 1.0,
         start_step: int = 0,
         seg_frames: bool = False,
-        camera_id: Text = "walker/close_profile",
+        camera_id: Text = "Camera1",  # walker/close_profile",
         use_open_loop: bool = False,
     ):
         """Initialize the embedder.
@@ -263,12 +263,27 @@ class NpmpEmbedder:
             composer.Environment(task), self.min_action, self.max_action
         )
         # self.environment.task.start_step = self.start_step
+
+        # self.environment.task._arena._mjcf_root.worldbody.add(
+        #     "camera",
+        #     name="CameraE",
+        #     pos=[-0.0452, 1.5151, 0.3174],
+        #     fovy=50,
+        #     quat="0.0010 -0.0202 -0.7422 -0.6699",
+        # )
+
+        # To get the quaternion, you need to convert the matlab camera rotation matrrix:
+        # eul = rotm2eul(r,'ZYX')
+        # eul(3) = eul(3) + pi
+        # quat = rotm2quat(eul,'ZYX')
+        # This converts matlab definition of the camera frame (X right Y down Z forward)
+        # to the mujoco version (X right, Y up, Z backward)
         self.environment.task._arena._mjcf_root.worldbody.add(
             "camera",
-            name="CameraE",
-            pos=[-0.0452, 1.5151, 0.3174],
+            name="Camera1",
+            pos=[-0.8781364, 0.3775911, 0.4291190],
             fovy=50,
-            quat="0.0010 -0.0202 -0.7422 -0.6699",
+            quat="0.5353    0.3435   -0.4623   -0.6178",
         )
 
         if self.seg_frames:
