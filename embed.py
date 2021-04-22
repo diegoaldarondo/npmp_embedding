@@ -1,11 +1,19 @@
 """Embed out of sample data using npmp architecture.
 
 Attributes:
+    DATA_TYPES (List): Data saved for all models
     FPS (int): Frame rate of the video
-    IMAGE_SIZE (list): Dimensions of images in video
+    IMAGE_SIZE (List): Dimensions of images in video
+    LSTM_ACTIONS (Dict): Lstm actions and node names
+    LSTM_DATA_TYPES (Dict): Lstm data to save
+    LSTM_FULL_INPUTS (Dict): Lstm inputs and node names
+    LSTM_STATES (List): Lstm state features
     mjlib (module): Shorthand for mjbindings.mjlib
-    OBSERVATIONS (list): Model observations
-    STATES (list): Model States
+    MLP_ACTIONS (Dict): Mlp actions and node names
+    MLP_DATA_TYPES (Dict): Mlp data to save
+    MLP_FULL_INPUTS (Dict): MLP inputs and node names
+    MLP_STATES (List): MLP state features
+    OBSERVATIONS (List): Model observations
 """
 import dm_control
 import h5py
@@ -218,7 +226,7 @@ def load_params(param_path: Text) -> Dict:
     return params
 
 
-def walker_fn(**kwargs) -> rodent.Rat:
+def walker_fn(torque_actuators=False, **kwargs) -> rodent.Rat:
     """Specify the rodent walker.
 
     Args:
@@ -227,40 +235,31 @@ def walker_fn(**kwargs) -> rodent.Rat:
     Returns:
         rodent.Rat: Rat walker.
     """
-    return rodent.Rat(torque_actuators=False, foot_mods=True, **kwargs)
+    return rodent.Rat(torque_actuators=torque_actuators, foot_mods=True, **kwargs)
 
 
 class NpmpEmbedder:
     """Utility class to roll out model for new snippets.
 
     Attributes:
-        action_mean (list): List of actions over time.
         arena (composer.Arena, optional): Arena in which to perform roll out.
         body_error_multiplier (float): Scaling factor for body error.
         cam_list (list): List of rendered video frames over time.
         camera_id (Text): Name of the camera to use for rendering.
+        data (Dict): Observed data
         dataset (Text): Name of dataset registered in dm_control.
         end_step (int): Last step of video
         environment (composer.Environment): Environment for roll out.
         full_inputs (Dict): All inputs to model.
         import_dir (Text): Directory of trained model.
-        jacobian_latent_mean (list): List of Jacobian of action mean w/r latent mean over time.
-        jacobian_latent_scale (list): List of Jacobian of action mean w/r latent scale over time.
-        latent_list (list): List of latent samples over time (samce as latent_sample)
-        latent_mean_list (list): List of latent mean over time (same as level 1 loc)
-        latent_noise (list): List of latent noise over time.
-        latent_sample (list): List of latent samples over time.
-        level_1_loc (list): List of level 1 locs over time.
-        level_1_scale (list): List of level 1 scales over time.
+        lstm (bool): Set to true if rolling out an LSTM model.
         max_action (float): Maximum value of action.
         min_action (float): Minimum value of action.
         min_steps (int): Minimum number of steps in a roll out.
         offset_path (Text): Path to offsets .pickle file.
         physics_timestep (float): Timestep for physics calculations
-        prior_mean (list): List of prior means over time.
         ref_path (Text): Path to reference snippet.
         ref_steps (Tuple): Reference steps. e.g (1, 2, 3, 4, 5)
-        rew_list (list): List of rewards over time.
         reward_type (Text): Type of reward. Default "rat_mimic_force"
         save_dir (Text): Path to saving directory.
         scene_option (wrapper.MjvOption): MjvOptions for scene rendering.
@@ -270,7 +269,6 @@ class NpmpEmbedder:
         termination_error_threshold (float, optional): Error threshold at which to stop roll out.
         use_open_loop (bool): If True, use open-loop during roll out.
         video_length (int): Length of snippet in frames.
-        walker_body_sites (list): List of keypoint sites on the body.
     """
 
     def __init__(
@@ -294,8 +292,10 @@ class NpmpEmbedder:
         max_action: float = 1.0,
         start_step: int = 0,
         seg_frames: bool = False,
-        camera_id: Text = "Camera1",  # walker/close_profile",
+        camera_id: Text = "Camera1",
         use_open_loop: bool = False,
+        lstm: bool = False,
+        torque_actuators: bool = False,
     ):
         """Initialize the embedder.
 
@@ -321,10 +321,10 @@ class NpmpEmbedder:
             seg_frames (bool, optional): If True, segment animal from background in video.
             camera_id (Text, optional): Name of the camera to use for rendering.
             use_open_loop (bool, optional): If True, use open-loop during roll out.
+            lstm (bool, optional): Set to true if rolling out an LSTM model.
+            torque (bool, optional): Description
         """
-        self.latent_list = None
-        self.latent_mean_list = None
-        self.rew_list = None
+
         self.cam_list = None
         self.full_inputs = None
         self.ref_path = ref_path
@@ -349,20 +349,18 @@ class NpmpEmbedder:
         self.seg_frames = seg_frames
         self.camera_id = camera_id
         self.use_open_loop = use_open_loop
+        self.lstm = lstm
 
-        # task = tracking.LongClipTracking(
-        #     self.start_step,
-        #     walker=walker_fn,
-        #     arena=self.arena,
-        #     ref_path=self.ref_path,
-        #     ref_steps=self.ref_steps,
-        #     termination_error_threshold=self.termination_error_threshold,
-        #     dataset=self.dataset,
-        #     min_steps=self.min_steps,
-        #     reward_type=self.reward_type,
-        #     physics_timestep=self.physics_timestep,
-        #     body_error_multiplier=self.body_error_multiplier,
-        # )
+        # Initialize data dictionary
+        self.data = {}
+        for data_type in DATA_TYPES:
+            self.data[data_type] = []
+        if self.lstm:
+            for data_type in LSTM_DATA_TYPES:
+                self.data[data_type] = []
+        else:
+            for data_type in MLP_DATA_TYPES:
+                self.data[data_type] = []
 
         # Set up the stac parameters to compute the inferred mocap reference
         # points in CoMic rollouts.
@@ -372,7 +370,7 @@ class NpmpEmbedder:
         task = tracking.SingleClipTracking(
             clip_id="clip_%d" % (self.start_step),
             clip_length=self.video_length + np.max(self.ref_steps) + 1,
-            walker=lambda **kwargs: walker_fn(params=params, **kwargs),
+            walker=lambda **kwargs: walker_fn(params=params, torque_actuators=torque_actuators, **kwargs),
             arena=self.arena,
             ref_path=self.ref_path,
             ref_steps=self.ref_steps,
@@ -411,6 +409,7 @@ class NpmpEmbedder:
             quat="0.5353    0.3435   -0.4623   -0.6178",
         )
 
+        # Set the scene to segment the frames or not.
         if self.seg_frames:
             self.scene_option = wrapper.MjvOption()
             self.environment.physics.model.skin_rgba[0][3] = 0.0
@@ -501,9 +500,13 @@ class NpmpEmbedder:
         """
         timestep = self.environment.reset()
         feed_dict = {}
+        if self.lstm:
+            states = LSTM_STATES
+        else:
+            states = MLP_STATES
         for obs in OBSERVATIONS:
             feed_dict[self.full_inputs[obs]] = timestep.observation[obs]
-        for state in STATES:
+        for state in states:
             feed_dict[self.full_inputs[state]] = np.zeros(self.full_inputs[state].shape)
         feed_dict[self.full_inputs["step_type"]] = timestep.step_type
         feed_dict[self.full_inputs["reward"]] = timestep.reward
@@ -523,9 +526,13 @@ class NpmpEmbedder:
         # timestep = self.environment.step(action_output_np["action"])
         timestep = self.environment.step(action_output_np["action_mean"])
         feed_dict = {}
+        if self.lstm:
+            states = LSTM_STATES
+        else:
+            states = MLP_STATES
         for obs in OBSERVATIONS:
             feed_dict[self.full_inputs[obs]] = timestep.observation[obs]
-        for state in STATES:
+        for state in states:
             feed_dict[self.full_inputs[state]] = action_output_np[state].flatten()
         feed_dict[self.full_inputs["step_type"]] = timestep.step_type
         feed_dict[self.full_inputs["reward"]] = timestep.reward
@@ -569,165 +576,37 @@ class NpmpEmbedder:
             )
 
     def embed(self):
-        """Embed trajectories using npmp model."""
+        """Embed trajectories using comic model."""
         with tf.Session() as sess:
             tf.saved_model.loader.load(sess, ["tag"], self.import_dir)
             graph = tf.get_default_graph()
-
-            self.full_inputs = {
-                "step_type": sess.graph.get_tensor_by_name("step_type_2:0"),
-                "reward": sess.graph.get_tensor_by_name("reward_2:0"),
-                "discount": sess.graph.get_tensor_by_name("discount_1:0"),
-                "walker/actuator_activation": sess.graph.get_tensor_by_name(
-                    "walker/actuator_activation_1:0"
-                ),
-                "walker/appendages_pos": sess.graph.get_tensor_by_name(
-                    "walker/appendages_pos_1:0"
-                ),
-                "walker/body_height": sess.graph.get_tensor_by_name(
-                    "walker/body_height_1:0"
-                ),
-                "walker/end_effectors_pos": sess.graph.get_tensor_by_name(
-                    "walker/end_effectors_pos_1:0"
-                ),
-                "walker/joints_pos": sess.graph.get_tensor_by_name(
-                    "walker/joints_pos_1:0"
-                ),
-                "walker/joints_vel": sess.graph.get_tensor_by_name(
-                    "walker/joints_vel_1:0"
-                ),
-                "walker/sensors_accelerometer": sess.graph.get_tensor_by_name(
-                    "walker/sensors_accelerometer_1:0"
-                ),
-                "walker/sensors_force": sess.graph.get_tensor_by_name(
-                    "walker/sensors_force_1:0"
-                ),
-                "walker/sensors_gyro": sess.graph.get_tensor_by_name(
-                    "walker/sensors_gyro_1:0"
-                ),
-                "walker/sensors_torque": sess.graph.get_tensor_by_name(
-                    "walker/sensors_torque_1:0"
-                ),
-                "walker/sensors_touch": sess.graph.get_tensor_by_name(
-                    "walker/sensors_touch_1:0"
-                ),
-                "walker/sensors_velocimeter": sess.graph.get_tensor_by_name(
-                    "walker/sensors_velocimeter_1:0"
-                ),
-                "walker/tendons_pos": sess.graph.get_tensor_by_name(
-                    "walker/tendons_pos_1:0"
-                ),
-                "walker/tendons_vel": sess.graph.get_tensor_by_name(
-                    "walker/tendons_vel_1:0"
-                ),
-                "walker/world_zaxis": sess.graph.get_tensor_by_name(
-                    "walker/world_zaxis_1:0"
-                ),
-                "walker/reference_rel_bodies_pos_local": sess.graph.get_tensor_by_name(
-                    "walker/reference_rel_bodies_pos_local_1:0"
-                ),
-                "walker/reference_rel_bodies_quats": sess.graph.get_tensor_by_name(
-                    "walker/reference_rel_bodies_quats_1:0"
-                ),
-                "dummy_core_state": sess.graph.get_tensor_by_name("state_9:0"),
-                "dummy_target_core_state": sess.graph.get_tensor_by_name("state_10:0"),
-                "dummy_policy_state_level_1": sess.graph.get_tensor_by_name(
-                    "state_11:0"
-                ),
-                "dummy_policy_state_level_2": sess.graph.get_tensor_by_name(
-                    "state_12:0"
-                ),
-                "dummy_target_policy_state_level_1": sess.graph.get_tensor_by_name(
-                    "state_14:0"
-                ),
-                "dummy_target_policy_state_level_2": sess.graph.get_tensor_by_name(
-                    "state_15:0"
-                ),
-                "latent": sess.graph.get_tensor_by_name("state_13:0"),
-                "target_latent": sess.graph.get_tensor_by_name("state_16:0"),
-            }
-
-            action_output = {
-                "action": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag/sample/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_chain_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_scale_matvec_linear_operator/forward/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift/forward/add:0"
-                ),
-                "dummy_core_state": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core/Select:0"
-                ),
-                "dummy_target_core_state": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_2/Select:0"
-                ),
-                "dummy_policy_state_level_1": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/Select:0"
-                ),
-                "dummy_policy_state_level_2": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/Select_1:0"
-                ),
-                "dummy_target_policy_state_level_1": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1_1/Select:0"
-                ),
-                "dummy_target_policy_state_level_2": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1_1/Select_1:0"
-                ),
-                "latent": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0"
-                ),
-                "latent_mean": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0"
-                ),
-                "target_latent": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1_1/MultiLevelSamplerWithARPrior/add_2:0"
-                ),
-                "prior_mean": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/mul_1:0"
-                ),
-                # "latent_noise": sess.graph.get_tensor_by_name(
-                #     "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_MultivariateNormalDiag/sample/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_MultivariateNormalDiag_chain_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_MultivariateNormalDiag_shift_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_MultivariateNormalDiag_scale_matvec_linear_operator/forward/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_MultivariateNormalDiag_shift/forward/add:0"
-                # ),
-                "level_1_scale": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add:0"
-                ),
-                "level_1_loc": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0"
-                ),
-                "latent_sample": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0"
-                ),
-                "action_mean": sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0"
-                ),
-                "jacobian_latent_mean": jacobian(
+            if self.lstm:
+                self.full_inputs = {
+                    k: sess.graph.get_tensor_by_name(v)
+                    for k, v in LSTM_FULL_INPUTS.items()
+                }
+                action_output = {
+                    k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_ACTIONS.items()
+                }
+            else:
+                self.full_inputs = {
+                    k: sess.graph.get_tensor_by_name(v)
+                    for k, v in MLP_FULL_INPUTS.items()
+                }
+                action_output = {
+                    k: sess.graph.get_tensor_by_name(v) for k, v in MLP_ACTIONS.items()
+                }
+                action_output["jacobian_latent_mean"] = jacobian(
                     sess.graph.get_tensor_by_name(
                         "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0"
                     ),
                     sess.graph.get_tensor_by_name(
                         "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0"
                     ),
-                ),
-                "jacobian_latent_scale": jacobian(
-                    sess.graph.get_tensor_by_name(
-                        "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0"
-                    ),
-                    sess.graph.get_tensor_by_name(
-                        "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add:0"
-                    ),
-                ),
-            }
+                )
 
             timestep, feed_dict = self.reset_rollout()
             self.cam_list = []
-            self.latent_list = []
-            self.prior_mean = []
-            self.latent_noise = []
-            self.level_1_scale = []
-            self.level_1_loc = []
-            self.latent_sample = []
-            self.latent_mean_list = []
-            self.action_mean = []
-            self.jacobian_latent_mean = []
-            self.jacobian_latent_scale = []
-            self.rew_list = []
-            self.walker_body_sites = []
             if self.use_open_loop:
                 self.open_loop(sess, action_output, timestep, feed_dict)
             else:
@@ -735,6 +614,28 @@ class NpmpEmbedder:
 
             # TODO(Why is this here?)
             action_output_np = sess.run(action_output, feed_dict)
+
+    def observe_data(self, action_output_np: Dict, timestep):
+        """Observe model features.
+
+        Args:
+            action_output_np (Dict): Description
+            timestep (TYPE): Description
+        """
+        if self.lstm:
+            data_types = LSTM_DATA_TYPES
+        else:
+            data_types = MLP_DATA_TYPES
+        for data_type in data_types:
+            self.data[data_type].append(action_output_np[data_type])
+        self.data["reward"].append(timestep.reward)
+        self.data["walker_body_sites"].append(
+            np.copy(
+                self.environment.physics.bind(
+                    self.environment.task._walker.body_sites
+                ).xpos[:]
+            )
+        )
 
     def closed_loop(
         self,
@@ -764,24 +665,8 @@ class NpmpEmbedder:
             action_output_np = sess.run(action_output, feed_dict)
             timestep, feed_dict = self.step_rollout(action_output_np)
 
-            self.walker_body_sites.append(
-                np.copy(
-                    self.environment.physics.bind(
-                        self.environment.task._walker.body_sites
-                    ).xpos[:]
-                )
-            )
-            self.rew_list.append(timestep.reward)
-            self.latent_list.append(action_output_np["latent"].flatten())
-            self.prior_mean.append(action_output_np["prior_mean"].flatten())
-            # self.latent_noise.append(action_output_np["latent_noise"].flatten())
-            self.level_1_scale.append(action_output_np["level_1_scale"].flatten())
-            self.level_1_loc.append(action_output_np["level_1_loc"].flatten())
-            self.latent_sample.append(action_output_np["latent_sample"].flatten())
-            self.latent_mean_list.append(action_output_np["latent_mean"].flatten())
-            self.action_mean.append(action_output_np["action_mean"])
-            self.jacobian_latent_mean.append(action_output_np["jacobian_latent_mean"])
-            self.jacobian_latent_scale.append(action_output_np["jacobian_latent_scale"])
+            # Make observations
+            self.observe_data(self, action_output_np, timestep)
 
             # Save a checkpoint of the data and video
             if n_step + 1 == self.video_length:
@@ -822,14 +707,8 @@ class NpmpEmbedder:
             action_output_np = sess.run(action_output, feed_dict)
             timestep, feed_dict = self.step_rollout(action_output_np)
 
-            self.rew_list.append(timestep.reward)
-            self.latent_list.append(action_output_np["latent"].flatten())
-            self.prior_mean.append(action_output_np["prior_mean"].flatten())
-            # self.latent_noise.append(action_output_np["latent_noise"].flatten())
-            self.level_1_scale.append(action_output_np["level_1_scale"].flatten())
-            self.level_1_loc.append(action_output_np["level_1_loc"].flatten())
-            self.latent_sample.append(action_output_np["latent_sample"].flatten())
-            self.latent_mean_list.append(action_output_np["latent_mean"].flatten())
+            # Make observations
+            self.observe_data(self, action_output_np, timestep)
 
             # Save a checkpoint of the data and video
             if n_step + 1 == self.video_length:
@@ -853,19 +732,10 @@ class NpmpEmbedder:
             os.makedirs(os.path.dirname(save_path))
 
         action_names = self.environment.physics.named.data.act.axes.row.names
-        savemat(
-            save_path,
-            {
-                "level_1_scale": np.array(self.level_1_scale),
-                "level_1_loc": np.array(self.level_1_loc),
-                "latent_sample": np.array(self.latent_sample),
-                "reward": np.array(self.rew_list),
-                "action_mean": np.array(self.action_mean),
-                "action_names": action_names,
-                "jacobian_latent_mean": np.array(self.jacobian_latent_mean),
-                "walker_body_sites": np.array(self.walker_body_sites),
-            },
-        )
+
+        out_dict = {k: np.array(v) for k, v in self.data.items()}
+        out_dict["action_names"] = action_names
+        savemat(save_path, out_dict)
 
 
 def parse():
@@ -982,15 +852,15 @@ def npmp_embed_single_batch():
 
     Embeds a single batch in a batch array. Reads batch options from _batch_args.p.
 
-    Args:
+    Optional Args:
+        stac_params (Text): Path to stac params (.yaml).
+        offset_path (Text): Path to stac output with offset(.p).
+
+    Deleted Parameters:
         ref_path (Text): Path to .hdf5 reference trajectories.
         save_dir (Text): Folder in which to save .mat files.
         dataset (Text): Name of dataset registered in dm_control.
         import_dir (Text): Path to rodent tracking model.
-
-    Optional Args:
-        stac_params (Text): Path to stac params (.yaml).
-        offset_path (Text): Path to stac output with offset(.p).
     """
     parser = argparse.ArgumentParser(
         description=__doc__,
