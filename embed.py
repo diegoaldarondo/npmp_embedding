@@ -59,7 +59,7 @@ OBSERVATIONS = [
     "walker/reference_rel_bodies_quats",
 ]
 
-STATES = [
+MLP_STATES = [
     "latent",
     "target_latent",
     "dummy_core_state",
@@ -69,6 +69,131 @@ STATES = [
     "dummy_target_policy_state_level_1",
     "dummy_target_policy_state_level_2",
 ]
+
+LSTM_STATES = [
+    "latent",
+    "target_latent",
+    "lstm_policy_hidden_level_1",
+    "lstm_policy_cell_level_1",
+    "lstm_policy_hidden_level_2",
+    "lstm_policy_cell_level_2",
+]
+
+MLP_FULL_INPUTS = {
+    "step_type": "step_type_2:0",
+    "reward": "reward_2:0",
+    "discount": "discount_1:0",
+    "walker/actuator_activation": "walker/actuator_activation_1:0",
+    "walker/appendages_pos": "walker/appendages_pos_1:0",
+    "walker/body_height": "walker/body_height_1:0",
+    "walker/end_effectors_pos": "walker/end_effectors_pos_1:0",
+    "walker/joints_pos": "walker/joints_pos_1:0",
+    "walker/joints_vel": "walker/joints_vel_1:0",
+    "walker/sensors_accelerometer": "walker/sensors_accelerometer_1:0",
+    "walker/sensors_force": "walker/sensors_force_1:0",
+    "walker/sensors_gyro": "walker/sensors_gyro_1:0",
+    "walker/sensors_torque": "walker/sensors_torque_1:0",
+    "walker/sensors_touch": "walker/sensors_touch_1:0",
+    "walker/sensors_velocimeter": "walker/sensors_velocimeter_1:0",
+    "walker/tendons_pos": "walker/tendons_pos_1:0",
+    "walker/tendons_vel": "walker/tendons_vel_1:0",
+    "walker/world_zaxis": "walker/world_zaxis_1:0",
+    "walker/reference_rel_bodies_pos_local": "walker/reference_rel_bodies_pos_local_1:0",
+    "walker/reference_rel_bodies_quats": "walker/reference_rel_bodies_quats_1:0",
+    "dummy_core_state": "state_9:0",
+    "dummy_target_core_state": "state_10:0",
+    "dummy_policy_state_level_1": "state_11:0",
+    "dummy_policy_state_level_2": "state_12:0",
+    "dummy_target_policy_state_level_1": "state_14:0",
+    "dummy_target_policy_state_level_2": "state_15:0",
+    "latent": "state_13:0",
+    "target_latent": "state_16:0",
+}
+
+LSTM_FULL_INPUTS = {
+    "step_type": "step_type_2:0",
+    "reward": "reward_2:0",
+    "discount": "discount_1:0",
+    "walker/actuator_activation": "walker/actuator_activation_1:0",
+    "walker/appendages_pos": "walker/appendages_pos_1:0",
+    "walker/body_height": "walker/body_height_1:0",
+    "walker/end_effectors_pos": "walker/end_effectors_pos_1:0",
+    "walker/joints_pos": "walker/joints_pos_1:0",
+    "walker/joints_vel": "walker/joints_vel_1:0",
+    "walker/sensors_accelerometer": "walker/sensors_accelerometer_1:0",
+    "walker/sensors_force": "walker/sensors_force_1:0",
+    "walker/sensors_gyro": "walker/sensors_gyro_1:0",
+    "walker/sensors_torque": "walker/sensors_torque_1:0",
+    "walker/sensors_touch": "walker/sensors_touch_1:0",
+    "walker/sensors_velocimeter": "walker/sensors_velocimeter_1:0",
+    "walker/tendons_pos": "walker/tendons_pos_1:0",
+    "walker/tendons_vel": "walker/tendons_vel_1:0",
+    "walker/world_zaxis": "walker/world_zaxis_1:0",
+    "walker/reference_rel_bodies_pos_local": "walker/reference_rel_bodies_pos_local_1:0",
+    "walker/reference_rel_bodies_quats": "walker/reference_rel_bodies_quats_1:0",
+    "lstm_policy_hidden_level_1": "state_22:0",
+    "lstm_policy_cell_level_1": "state_23:0",
+    "lstm_policy_hidden_level_2": "state_24:0",
+    "lstm_policy_cell_level_2": "state_25:0",
+    "latent": "state_26:0",
+    "target_latent": "state_32:0",
+}
+
+MLP_ACTIONS = {
+    "action": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag/sample/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_chain_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_scale_matvec_linear_operator/forward/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift/forward/add:0",
+    "dummy_core_state": "agent_0/step_1/reset_core/Select:0",
+    "dummy_target_core_state": "agent_0/step_1/reset_core_2/Select:0",
+    "dummy_policy_state_level_1": "agent_0/step_1/reset_core_1/Select:0",
+    "dummy_policy_state_level_2": "agent_0/step_1/reset_core_1/Select_1:0",
+    "dummy_target_policy_state_level_1": "agent_0/step_1/reset_core_1_1/Select:0",
+    "dummy_target_policy_state_level_2": "agent_0/step_1/reset_core_1_1/Select_1:0",
+    "latent": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
+    "latent_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
+    "target_latent": "agent_0/step_1/reset_core_1_1/MultiLevelSamplerWithARPrior/add_2:0",
+    "prior_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/mul_1:0",
+    "level_1_scale": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add:0",
+    "level_1_loc": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
+    "latent_sample": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
+    "action_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0",
+}
+
+LSTM_ACTIONS = {
+    "action": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag/sample/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_chain_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_scale_matvec_linear_operator/forward/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift/forward/add:0",
+    "action_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0",
+    "lstm_policy_hidden_level_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm/mul_2:0",
+    "lstm_policy_cell_level_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm/add_2:0",
+    "lstm_policy_hidden_level_2": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm_1/mul_2:0",
+    "lstm_policy_cell_level_2": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm_1/add_2:0",
+    "latent": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
+    "latent_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
+    "latent_sample": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
+    "level_1_scale": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add:0",
+    "level_1_loc": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
+    "target_latent": "agent_0/step_1/reset_core_1_1/MultiLevelSamplerWithARPrior/add_2:0",
+}
+
+DATA_TYPES = [
+    "reward" "walker_body_sites",
+]
+
+MLP_DATA_TYPES = [
+    "level_1_scale",
+    "level_1_loc",
+    "latent_sample",
+    "action_mean",
+]
+
+LSTM_DATA_TYPES = [
+    "level_1_scale",
+    "level_1_loc",
+    "latent_sample",
+    "lstm_policy_hidden_level_1",
+    "lstm_policy_cell_level_1",
+    "lstm_policy_hidden_level_,2",
+    "lstm_policy_cell_level_2",
+    "action_mean",
+]
+
 
 FPS = 50
 IMAGE_SIZE = [480, 640, 3]
