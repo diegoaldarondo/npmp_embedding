@@ -181,7 +181,8 @@ LSTM_ACTIONS = {
 }
 
 DATA_TYPES = [
-    "reward" "walker_body_sites",
+    "reward",
+    "walker_body_sites",
 ]
 
 MLP_DATA_TYPES = [
@@ -197,7 +198,7 @@ LSTM_DATA_TYPES = [
     "latent_sample",
     "lstm_policy_hidden_level_1",
     "lstm_policy_cell_level_1",
-    "lstm_policy_hidden_level_,2",
+    "lstm_policy_hidden_level_2",
     "lstm_policy_cell_level_2",
     "action_mean",
 ]
@@ -370,7 +371,9 @@ class NpmpEmbedder:
         task = tracking.SingleClipTracking(
             clip_id="clip_%d" % (self.start_step),
             clip_length=self.video_length + np.max(self.ref_steps) + 1,
-            walker=lambda **kwargs: walker_fn(params=params, torque_actuators=torque_actuators, **kwargs),
+            walker=lambda **kwargs: walker_fn(
+                params=params, torque_actuators=torque_actuators, **kwargs
+            ),
             arena=self.arena,
             ref_path=self.ref_path,
             ref_steps=self.ref_steps,
@@ -607,10 +610,25 @@ class NpmpEmbedder:
 
             timestep, feed_dict = self.reset_rollout()
             self.cam_list = []
-            if self.use_open_loop:
-                self.open_loop(sess, action_output, timestep, feed_dict)
-            else:
-                self.closed_loop(sess, action_output, timestep, feed_dict)
+            try:
+                if self.use_open_loop:
+                    self.open_loop(sess, action_output, timestep, feed_dict)
+                else:
+                    self.closed_loop(sess, action_output, timestep, feed_dict)
+            except IndexError:
+                while len(self.data["reward"]) < self.video_length:
+                    for k in self.data.keys():
+                        self.data[k].append(self.data[k][-1])
+                # while len(cam_list) < self.video_length:
+                #     self.cam_list.append(self.cam_list[-1])
+                self.checkpoint_eval_video(
+                    os.path.join(self.save_dir, "video", str(self.start_step) + ".mp4")
+                )
+                self.save_checkpoint(
+                    os.path.join(self.save_dir, "logs", str(self.start_step) + ".mat")
+                )
+                # Clear the cam list to keep memory low.
+                self.cam_list = []
 
             # TODO(Why is this here?)
             action_output_np = sess.run(action_output, feed_dict)
@@ -666,7 +684,7 @@ class NpmpEmbedder:
             timestep, feed_dict = self.step_rollout(action_output_np)
 
             # Make observations
-            self.observe_data(self, action_output_np, timestep)
+            self.observe_data(action_output_np, timestep)
 
             # Save a checkpoint of the data and video
             if n_step + 1 == self.video_length:
@@ -708,7 +726,7 @@ class NpmpEmbedder:
             timestep, feed_dict = self.step_rollout(action_output_np)
 
             # Make observations
-            self.observe_data(self, action_output_np, timestep)
+            self.observe_data(action_output_np, timestep)
 
             # Save a checkpoint of the data and video
             if n_step + 1 == self.video_length:
@@ -892,15 +910,23 @@ def npmp_embed_single_batch():
         dest="offset_path",
         help="Path to stac output with offset(.p).",
     )
+    parser.add_argument(
+        "--batch-file",
+        dest="batch_file",
+        default="_batch_args.p",
+        help="Path to stac output with offset(.p).",
+    )
     args = parser.parse_args()
     # Load in parameters to modify
-    with open("_batch_args.p", "rb") as file:
+    with open(args.batch_file, "rb") as file:
         batch_args = pickle.load(file)
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
     # task_id = 0
     batch_args = batch_args[task_id]
     print(batch_args)
-    npmp = NpmpEmbedder(**args.__dict__, **batch_args)
+    args = args.__dict__
+    del args["batch_file"]
+    npmp = NpmpEmbedder(**args, **batch_args)
     npmp.embed()
 
 
