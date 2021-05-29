@@ -88,28 +88,32 @@ class ParallelNpmpDispatcher:
 
     def dispatch(self):
         """Submit the job to the cluster."""
-        # cmd = (
-        #     "sbatch --array=0-%d multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"
-        #     % (
-        #         len(self.start_steps) - 1,
-        #         self.ref_path,
-        #         self.save_dir,
-        #         self.dataset,
-        #         self.import_dir,
-        #         self.stac_params,
-        #         self.offset_path,
-        #         self.batch_file,
-        #     )
-        # )
-        cmd = "sbatch --array=0-1 multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s" % (
-            self.ref_path,
-            self.save_dir,
-            self.dataset,
-            self.import_dir,
-            self.stac_params,
-            self.offset_path,
-            self.batch_file,
+        cmd1 = (
+            '"sbatch --wait --array=0-%d multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"'
+            % (
+                len(self.start_steps) - 1,
+                self.ref_path,
+                self.save_dir,
+                self.dataset,
+                self.import_dir,
+                self.stac_params,
+                self.offset_path,
+                self.batch_file,
+            )
         )
+        # cmd1 = '"sbatch --wait --array=0-1 multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"' % (
+        #     self.ref_path,
+        #     self.save_dir,
+        #     self.dataset,
+        #     self.import_dir,
+        #     self.stac_params,
+        #     self.offset_path,
+        #     self.batch_file,
+        # )
+
+        out_folder = os.path.join(self.save_dir, "logs")
+        cmd2 = '"merge-embed %s"' % (out_folder)
+        cmd = "sbatch embed.sh " + cmd1 + " " + cmd2
         print(cmd)
         os.system(cmd)
 
