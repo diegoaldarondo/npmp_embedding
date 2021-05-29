@@ -363,6 +363,7 @@ class NpmpEmbedder:
             self.data[data_type] = []
         for obs in OBSERVATIONS:
             self.data[obs] = []
+        self.data["reset"] = []
 
         # Create model-specific states lists and datatypes
         if self.lstm:
@@ -664,7 +665,7 @@ class NpmpEmbedder:
         self.data["xpos"].append(np.copy(self.environment.physics.named.data.xpos[:]))
         for obs in OBSERVATIONS:
             self.data[obs].append(timestep.observation[obs])
-        
+        self.data["reset"].append(timestep.last())
 
     def closed_loop(
         self,
