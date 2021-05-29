@@ -183,6 +183,11 @@ LSTM_ACTIONS = {
 DATA_TYPES = [
     "reward",
     "walker_body_sites",
+    "qfrc",
+    "qpos",
+    "qvel",
+    "qacc",
+    "xpos",
 ]
 
 MLP_DATA_TYPES = [
@@ -654,6 +659,11 @@ class NpmpEmbedder:
                 ).xpos[:]
             )
         )
+        self.data["qfrc"].append(np.copy(self.environment.physics.named.data.qfrc_actuator[:]))
+        self.data["qpos"].append(np.copy(self.environment.physics.named.data.qpos[:]))
+        self.data["qvel"].append(np.copy(self.environment.physics.named.data.qvel[:]))
+        self.data["qacc"].append(np.copy(self.environment.physics.named.data.qacc[:]))
+        self.data["xpos"].append(np.copy(self.environment.physics.named.data.xpos[:]))
 
     def closed_loop(
         self,
