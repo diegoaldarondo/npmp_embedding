@@ -361,10 +361,18 @@ class NpmpEmbedder:
         self.data = {}
         for data_type in DATA_TYPES:
             self.data[data_type] = []
+        for obs in OBSERVATIONS:
+            self.data[obs] = []
+
+        # Create model-specific states lists and datatypes
         if self.lstm:
-            for data_type in LSTM_DATA_TYPES:
+            self.states = LSTM_STATES
+            self.data_types = LSTM_DATA_TYPES
+            for data_type in self.data_types:
                 self.data[data_type] = []
         else:
+            self.states = MLP_STATES
+            self.data_types = MLP_DATA_TYPES
             for data_type in MLP_DATA_TYPES:
                 self.data[data_type] = []
 
@@ -508,13 +516,9 @@ class NpmpEmbedder:
         """
         timestep = self.environment.reset()
         feed_dict = {}
-        if self.lstm:
-            states = LSTM_STATES
-        else:
-            states = MLP_STATES
         for obs in OBSERVATIONS:
             feed_dict[self.full_inputs[obs]] = timestep.observation[obs]
-        for state in states:
+        for state in self.states:
             feed_dict[self.full_inputs[state]] = np.zeros(self.full_inputs[state].shape)
         feed_dict[self.full_inputs["step_type"]] = timestep.step_type
         feed_dict[self.full_inputs["reward"]] = timestep.reward
@@ -534,13 +538,9 @@ class NpmpEmbedder:
         # timestep = self.environment.step(action_output_np["action"])
         timestep = self.environment.step(action_output_np["action_mean"])
         feed_dict = {}
-        if self.lstm:
-            states = LSTM_STATES
-        else:
-            states = MLP_STATES
         for obs in OBSERVATIONS:
             feed_dict[self.full_inputs[obs]] = timestep.observation[obs]
-        for state in states:
+        for state in self.states:
             feed_dict[self.full_inputs[state]] = action_output_np[state].flatten()
         feed_dict[self.full_inputs["step_type"]] = timestep.step_type
         feed_dict[self.full_inputs["reward"]] = timestep.reward
@@ -645,11 +645,7 @@ class NpmpEmbedder:
             action_output_np (Dict): Description
             timestep (TYPE): Description
         """
-        if self.lstm:
-            data_types = LSTM_DATA_TYPES
-        else:
-            data_types = MLP_DATA_TYPES
-        for data_type in data_types:
+        for data_type in self.data_types:
             self.data[data_type].append(action_output_np[data_type])
         self.data["reward"].append(timestep.reward)
         self.data["walker_body_sites"].append(
@@ -659,11 +655,16 @@ class NpmpEmbedder:
                 ).xpos[:]
             )
         )
-        self.data["qfrc"].append(np.copy(self.environment.physics.named.data.qfrc_actuator[:]))
+        self.data["qfrc"].append(
+            np.copy(self.environment.physics.named.data.qfrc_actuator[:])
+        )
         self.data["qpos"].append(np.copy(self.environment.physics.named.data.qpos[:]))
         self.data["qvel"].append(np.copy(self.environment.physics.named.data.qvel[:]))
         self.data["qacc"].append(np.copy(self.environment.physics.named.data.qacc[:]))
         self.data["xpos"].append(np.copy(self.environment.physics.named.data.xpos[:]))
+        for obs in OBSERVATIONS:
+            self.data[obs].append(timestep.observation[obs])
+        
 
     def closed_loop(
         self,
