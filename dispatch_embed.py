@@ -37,6 +37,7 @@ class ParallelNpmpDispatcher:
         lstm: bool = False,
         torque_actuators: bool = False,
         batch_file="_batch_args.p",
+        test: bool = False,
     ):
         """Initialize ParallelNpmpDispatcher.
 
@@ -48,6 +49,7 @@ class ParallelNpmpDispatcher:
             stac_params (Text): Path to stac params (.yaml).
             offset_path (Text): Path to stac output with offset (.p).
             video_length (int, optional): Length of chunks to parallelize over.
+            test (bool): If True, only submit a small test job
         """
         self.ref_path = ref_path
         self.save_dir = save_dir
@@ -58,6 +60,7 @@ class ParallelNpmpDispatcher:
         self.offset_path = offset_path
         self.batch_file = batch_file
         self.clip_end = self.get_clip_end()
+        self.test = test
 
         self.start_steps = np.arange(0, self.clip_end, self.video_length)
         self.end_steps = self.start_steps + self.video_length
@@ -88,9 +91,8 @@ class ParallelNpmpDispatcher:
 
     def dispatch(self):
         """Submit the job to the cluster."""
-        cmd1 = (
-            '"sbatch --wait --array=0-%d multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"'
-            % (
+        if not self.test:
+            cmd1 = '"sbatch --wait --array=0-%d multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"' % (
                 len(self.start_steps) - 1,
                 self.ref_path,
                 self.save_dir,
@@ -100,16 +102,16 @@ class ParallelNpmpDispatcher:
                 self.offset_path,
                 self.batch_file,
             )
-        )
-        # cmd1 = '"sbatch --wait --array=0-1 multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"' % (
-        #     self.ref_path,
-        #     self.save_dir,
-        #     self.dataset,
-        #     self.import_dir,
-        #     self.stac_params,
-        #     self.offset_path,
-        #     self.batch_file,
-        # )
+        else:
+            cmd1 = '"sbatch --wait --array=0 multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"' % (
+                self.ref_path,
+                self.save_dir,
+                self.dataset,
+                self.import_dir,
+                self.stac_params,
+                self.offset_path,
+                self.batch_file,
+            )
 
         out_folder = os.path.join(self.save_dir, "logs")
         cmd2 = '"merge-embed %s"' % (out_folder)
@@ -121,7 +123,7 @@ class ParallelNpmpDispatcher:
         """Save the batch arguments.
 
         Args:
-            batch_args (Dict): Arguments for each of the jobs in the batch array.
+                batch_args (Dict): Arguments for each of the jobs in the batch array.
         """
         with open(self.batch_file, "wb") as f:
             # print(batch_args)
@@ -202,6 +204,7 @@ def dispatch(
     lstm,
     torque_actuators,
     batch_file,
+    test: bool = False,
 ):
     dispatcher = ParallelNpmpDispatcher(
         ref_path,
@@ -213,6 +216,7 @@ def dispatch(
         lstm=lstm,
         torque_actuators=torque_actuators,
         batch_file=batch_file,
+        test=test,
     )
     dispatcher.dispatch()
 
