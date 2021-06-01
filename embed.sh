@@ -4,7 +4,7 @@
 #SBATCH -t 0-05:00
 #SBATCH -N 1
 #SBATCH -c 1
-#SBATCH -p olveczky,shared
+#SBATCH -p olveczky,shared,cox
 #SBATCH --exclude=holy2c18111 #seasmicro25 was removed
 #SBATCH --constraint="intel&avx"
 set -e
