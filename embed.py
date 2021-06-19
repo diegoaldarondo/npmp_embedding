@@ -615,9 +615,6 @@ class NpmpEmbedder:
                 #     self.cam_list.append(self.cam_list[-1])
                 self.checkpoint()
 
-            # # TODO(Why is this here?)
-            # action_output_np = sess.run(action_output, feed_dict)
-
     def setup_inputs_and_outputs(self, sess: tf.Session) -> Dict:
         """Setup full_inputs and action_outputs for the model.
 
