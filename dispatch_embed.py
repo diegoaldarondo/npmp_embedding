@@ -3,6 +3,7 @@ import os
 import pickle
 import h5py
 import numpy as np
+import yaml
 import argparse
 from typing import Text, List, Dict, Tuple, Union
 import time
@@ -16,7 +17,7 @@ class ParallelNpmpDispatcher:
         clip_end (int): Last frame of clip.
         dataset (Text): Name of dataset registered in dm_control.
         end_steps (np.ndarray): Last steps of each chunk.
-        import_dir (Text): Path to rodent tracking model.
+        model_dir (Text): Path to rodent tracking model.
         offset_path (Text): Path to stac output with offset (.p).
         ref_path (Text): Path to .hdf5 reference trajectories.
         save_dir (Text): Folder in which to save videos and .mat files.
@@ -30,7 +31,7 @@ class ParallelNpmpDispatcher:
         ref_path: Text,
         save_dir: Text,
         dataset: Text,
-        import_dir: Text,
+        model_dir: Text,
         stac_params: Text,
         offset_path: Text,
         video_length: int = 2500,
@@ -45,7 +46,7 @@ class ParallelNpmpDispatcher:
             ref_path (Text): Path to .hdf5 reference trajectories.
             save_dir (Text): Folder in which to save videos and .mat files.
             dataset (Text): Name of dataset registered in dm_control.
-            import_dir (Text): Path to rodent tracking model.
+            model_dir (Text): Path to rodent tracking model.
             stac_params (Text): Path to stac params (.yaml).
             offset_path (Text): Path to stac output with offset (.p).
             video_length (int, optional): Length of chunks to parallelize over.
@@ -54,7 +55,7 @@ class ParallelNpmpDispatcher:
         self.ref_path = ref_path
         self.save_dir = save_dir
         self.dataset = dataset
-        self.import_dir = import_dir
+        self.model_dir = model_dir
         self.video_length = video_length
         self.stac_params = stac_params
         self.offset_path = offset_path
@@ -97,7 +98,7 @@ class ParallelNpmpDispatcher:
                 self.ref_path,
                 self.save_dir,
                 self.dataset,
-                self.import_dir,
+                self.model_dir,
                 self.stac_params,
                 self.offset_path,
                 self.batch_file,
@@ -107,7 +108,7 @@ class ParallelNpmpDispatcher:
                 self.ref_path,
                 self.save_dir,
                 self.dataset,
-                self.import_dir,
+                self.model_dir,
                 self.stac_params,
                 self.offset_path,
                 self.batch_file,
@@ -134,7 +135,7 @@ def dispatch_npmp_embed():
     """CLI Entrypoint to dispatch npmp embedding in a multi processing system.
 
     Args:
-        import_dir (Text): Path to rodent tracking model.
+        model_dir (Text): Path to rodent tracking model.
         stac_params (Text): Path to stac params (.yaml).
         offset_path (Text): Path to stac output with offset(.p).
 
@@ -161,7 +162,7 @@ def dispatch_npmp_embed():
     )
     parser.add_argument(
         "--import-dir",
-        dest="import_dir",
+        dest="model_dir",
         default="/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_no_noise",
         help="path to rodent tracking model.",
     )
@@ -194,120 +195,99 @@ def dispatch_npmp_embed():
     dispatcher.dispatch()
 
 
-def dispatch(
-    ref_path,
-    save_dir,
-    dataset,
-    import_dir,
-    stac_params,
-    offset_path,
-    lstm,
-    torque_actuators,
-    batch_file,
-    test: bool = False,
-):
+def dispatch(params: Dict):
     dispatcher = ParallelNpmpDispatcher(
-        ref_path,
-        save_dir,
-        dataset,
-        import_dir,
-        stac_params,
-        offset_path,
-        lstm=lstm,
-        torque_actuators=torque_actuators,
-        batch_file=batch_file,
-        test=test,
+        params["ref_path"],
+        params["save_dir"],
+        params["dataset"],
+        params["model_dir"],
+        params["stac_params"],
+        params["offset_path"],
+        lstm=params["lstm"],
+        torque_actuators=params["torque_actuators"],
+        batch_file=params["batch_file"],
+        test=params["test"],
     )
     dispatcher.dispatch()
 
 
-if __name__ == "__main__":
+def load_params(param_path: Text) -> Dict:
+    """Load dispatch parameters.
 
-    ref_path = "./npmp_preprocessing/total.hdf5"
-    stac_params = "./stac_params/params.yaml"
-    offset_path = "./stac/offset.p"
-    dataset = "dannce_ephys_" + os.path.basename(os.getcwd())
-    is_lstm = [
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        True,
-        True,
-        True,
-        True,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
-    is_torque_actuators = [
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-        True,
-    ]
-    model_dir = [
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_1_final",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_2_final",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_final",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_no_noise",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_4_final",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_1",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_2",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_3",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_4",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_5",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_1",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_2",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_3",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_4",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_5",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_3",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_4",
-        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_5",
-    ]
+    Args:
+        param_path (Text): Path to parameters .yaml file.
 
-    save_dir = [os.path.join("npmp", os.path.basename(m)) for m in model_dir]
-    for i, (s_dir, model, lstm, torque_actuators) in enumerate(
-        zip(save_dir, model_dir, is_lstm, is_torque_actuators)
-    ):
+    Returns:
+        Dict: Dispatch parameters dictionary
+    """
+    with open(param_path, "r") as file:
+        params = yaml.safe_load(file)
+    return params
+
+
+def build_params(param_path: Text) -> List[Dict]:
+    """Build list of parameters for a batch array job.
+
+    Args:
+        param_path (Text): Path to parameters .yaml file.
+
+    Returns:
+        List[Dict]: Parameters for each batch job.
+    """
+    in_params = load_params(param_path)
+    out_params = []
+
+    # Cycle through project folders and models.
+    for project_folder in in_params["project_folders"]:
+        for n_model, (model, lstm, torque) in enumerate(
+            zip(
+                in_params["model_dirs"],
+                in_params["is_lstm"],
+                in_params["is_torque_actuators"],
+            )
+        ):
+            batch_params = {
+                "model_dir": model,
+                "lstm": lstm,
+                "torque_actuators": torque,
+            }
+            for field in ["ref_path", "stac_params", "offset_path"]:
+                batch_params[field] = os.path.join(project_folder, in_params[field])
+            batch_params["test"] = in_params["test"]
+            batch_params["batch_file"] = os.path.join(
+                project_folder, "_batch_args%d.p" % (n_model)
+            )
+            batch_params["save_dir"] = os.path.join(
+                project_folder, in_params["save_dir"], os.path.basename(model)
+            )
+            batch_params["dataset"] = "dannce_ephys_" + os.path.basename(project_folder)
+            out_params.append(batch_params.copy())
+    return out_params
+
+
+def parse() -> Dict:
+    """Return the parameters specified in the command line.
+
+    Returns:
+        Dict: Parameters dictionary
+    """
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "params",
+        help="Path to .yaml file specifying npmp embedding parameters.",
+    )
+    args = parser.parse_args()
+    return build_params(args.params)
+
+
+def main():
+    params = parse()
+    for batch_params in params:
         time.sleep(1)
-        batch_file = "_batch_args%d.p" % (i)
-        dispatch(
-            ref_path,
-            s_dir,
-            dataset,
-            model,
-            stac_params,
-            offset_path,
-            lstm,
-            torque_actuators,
-            batch_file,
-        )
+        dispatch(batch_params)
+
+
+if __name__ == "__main__":
+    main()
