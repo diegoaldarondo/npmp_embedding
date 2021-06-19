@@ -16,7 +16,6 @@ Attributes:
     OBSERVATIONS (List): Model observations
 """
 import dm_control
-import h5py
 from dm_control.locomotion.mocap import cmu_mocap_data
 from dm_control.locomotion.walkers import rodent
 from dm_control.locomotion.arenas import floors
@@ -24,25 +23,18 @@ from dm_control.locomotion.tasks.reference_pose import tracking
 from dm_control import composer
 from dm_control.mujoco.wrapper import mjbindings
 from dm_control.utils import transformations
+from dm_control.suite.wrappers import action_scale
+from dm_control.mujoco import wrapper
+from dm_control.mujoco.wrapper.mjbindings import enums
 from scipy.io import loadmat
 import pickle
-import mocap_preprocess
 import numpy as np
-import matplotlib.pyplot as plt
 import imageio
-import base64
-import IPython
-from sklearn.decomposition import PCA
-from sklearn.manifold import Isomap, TSNE
-import umap
-from dm_control.suite.wrappers import action_scale
 from scipy.io import savemat
 import argparse
 import ast
 import os
 import pickle
-from dm_control.mujoco import wrapper
-from dm_control.mujoco.wrapper.mjbindings import enums
 import yaml
 import tensorflow.compat.v1 as tf
 from tensorflow.python.ops.parallel_for.gradients import jacobian
@@ -195,6 +187,7 @@ MLP_DATA_TYPES = [
     "level_1_loc",
     "latent_sample",
     "action_mean",
+    # "jacobian_latent_mean",
 ]
 
 LSTM_DATA_TYPES = [
@@ -257,7 +250,7 @@ class NpmpEmbedder:
         end_step (int): Last step of video
         environment (composer.Environment): Environment for roll out.
         full_inputs (Dict): All inputs to model.
-        import_dir (Text): Directory of trained model.
+        model_dir (Text): Directory of trained model.
         lstm (bool): Set to true if rolling out an LSTM model.
         max_action (float): Maximum value of action.
         min_action (float): Minimum value of action.
@@ -281,9 +274,9 @@ class NpmpEmbedder:
         self,
         ref_path: Text,
         save_dir: Text,
-        import_dir: Text,
+        model_dir: Text,
         dataset: Text,
-        stac_params: Text = None,
+        stac_params: Text,
         offset_path: Text = None,
         arena: composer.Arena = floors.Floor(size=(10.0, 10.0)),
         ref_steps: Tuple = (1, 2, 3, 4, 5),
@@ -308,9 +301,9 @@ class NpmpEmbedder:
         Args:
             ref_path (Text): Path to reference snippet.
             save_dir (Text): Path to saving directory.
-            import_dir (Text): Directory of trained model.
+            model_dir (Text): Directory of trained model.
             dataset (Text): Name of dataset registered in dm_control.
-            stac_params (Text, optional): Path to stack params.yaml file.
+            stac_params (Text): Path to stack params.yaml file.
             offset_path (Text, optional): Path to offsets .pickle file.
             arena (composer.Arena, optional): Arena in which to perform roll out.
             ref_steps (Tuple, optional): Reference steps. e.g (1, 2, 3, 4, 5)
@@ -334,7 +327,7 @@ class NpmpEmbedder:
         self.cam_list = None
         self.full_inputs = None
         self.ref_path = ref_path
-        self.import_dir = import_dir
+        self.model_dir = model_dir
         self.save_dir = save_dir
         self.arena = arena
         self.stac_params = stac_params
@@ -356,8 +349,62 @@ class NpmpEmbedder:
         self.camera_id = camera_id
         self.use_open_loop = use_open_loop
         self.lstm = lstm
+        self.torque_actuators = torque_actuators
 
-        # Initialize data dictionary
+        self.setup_data_dicts()
+
+        # Set up the stac parameters to compute the inferred keypoints
+        # in CoMic rollouts.
+        params = load_params(self.stac_params)
+        self.setup_environment(torque_actuators, params)
+        self.setup_offsets(params)
+
+    def setup_environment(self, params: Dict):
+        """Setup task and environment
+
+        Args:
+            params (Dict): Stac parameters dict
+        """
+        task = tracking.SingleClipTracking(
+            clip_id="clip_%d" % (self.start_step),
+            clip_length=self.video_length + np.max(self.ref_steps) + 1,
+            walker=lambda **kwargs: walker_fn(
+                params=params, torque_actuators=self.torque_actuators, **kwargs
+            ),
+            arena=self.arena,
+            ref_path=self.ref_path,
+            ref_steps=self.ref_steps,
+            termination_error_threshold=self.termination_error_threshold,
+            dataset=self.dataset,
+            min_steps=self.min_steps,
+            reward_type=self.reward_type,
+            physics_timestep=self.physics_timestep,
+            body_error_multiplier=self.body_error_multiplier,
+        )
+        self.environment = action_scale.Wrapper(
+            composer.Environment(task), self.min_action, self.max_action
+        )
+        # Set the scene to segment the frames or not.
+        self.setup_scene_rendering()
+        self.environment.reset()
+
+    def setup_offsets(self, params: Dict):
+        """Set the keypoint offsets.
+
+        Args:
+            params (Dict): Stac parameters dict.
+        """
+        if self.offset_path is not None and self.stac_params is not None:
+            params["offset_path"] = self.offset_path
+        with open(params["offset_path"], "rb") as f:
+            in_dict = pickle.load(f)
+        sites = self.environment.task._walker.body_sites
+        self.environment.physics.bind(sites).pos[:] = in_dict["offsets"]
+        for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
+            sites[n_site].pos = p
+
+    def setup_data_dicts(self):
+        """Initialize data dictionary"""
         self.data = {}
         for data_type in DATA_TYPES:
             self.data[data_type] = []
@@ -377,33 +424,9 @@ class NpmpEmbedder:
             for data_type in MLP_DATA_TYPES:
                 self.data[data_type] = []
 
-        # Set up the stac parameters to compute the inferred mocap reference
-        # points in CoMic rollouts.
-        if self.stac_params is not None:
-            params = load_params(self.stac_params)
-
-        task = tracking.SingleClipTracking(
-            clip_id="clip_%d" % (self.start_step),
-            clip_length=self.video_length + np.max(self.ref_steps) + 1,
-            walker=lambda **kwargs: walker_fn(
-                params=params, torque_actuators=torque_actuators, **kwargs
-            ),
-            arena=self.arena,
-            ref_path=self.ref_path,
-            ref_steps=self.ref_steps,
-            termination_error_threshold=self.termination_error_threshold,
-            dataset=self.dataset,
-            min_steps=self.min_steps,
-            reward_type=self.reward_type,
-            physics_timestep=self.physics_timestep,
-            body_error_multiplier=self.body_error_multiplier,
-        )
-        print(task.clip_id, flush=True)
-        self.environment = action_scale.Wrapper(
-            composer.Environment(task), self.min_action, self.max_action
-        )
-        # self.environment.task.start_step = self.start_step
-
+    def setup_scene_rendering(self):
+        """Set the scene to segment the frames or not."""
+        # Add the camera
         # self.environment.task._arena._mjcf_root.worldbody.add(
         #     "camera",
         #     name="CameraE",
@@ -425,8 +448,6 @@ class NpmpEmbedder:
             fovy=50,
             quat="0.5353    0.3435   -0.4623   -0.6178",
         )
-
-        # Set the scene to segment the frames or not.
         if self.seg_frames:
             self.scene_option = wrapper.MjvOption()
             self.environment.physics.model.skin_rgba[0][3] = 0.0
@@ -444,17 +465,6 @@ class NpmpEmbedder:
             self.scene_option._ptr.contents.flags[
                 enums.mjtVisFlag.mjVIS_TRANSPARENT
             ] = True
-        self.environment.reset()
-
-        # Get the offsets.
-        if self.offset_path is not None and self.stac_params is not None:
-            params["offset_path"] = self.offset_path
-        with open(params["offset_path"], "rb") as f:
-            in_dict = pickle.load(f)
-        sites = self.environment.task._walker.body_sites
-        self.environment.physics.bind(sites).pos[:] = in_dict["offsets"]
-        for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
-            sites[n_site].pos = p
 
     def setup_keypoint_sites(self):
         """Add keypoint sites to estimate original keypoint positions."""
@@ -587,7 +597,7 @@ class NpmpEmbedder:
     def embed(self):
         """Embed trajectories using comic model."""
         with tf.Session() as sess:
-            tf.saved_model.loader.load(sess, ["tag"], self.import_dir)
+            tf.saved_model.loader.load(sess, ["tag"], self.model_dir)
             graph = tf.get_default_graph()
             if self.lstm:
                 self.full_inputs = {
@@ -786,7 +796,7 @@ def parse():
     )
     parser.add_argument(
         "--import-dir",
-        dest="import_dir",
+        dest="model_dir",
         default="rodent_tracking_model_16212280_3_no_noise",
         help="Path to model import directory.",
     )
@@ -890,7 +900,7 @@ def npmp_embed_single_batch():
         ref_path (Text): Path to .hdf5 reference trajectories.
         save_dir (Text): Folder in which to save .mat files.
         dataset (Text): Name of dataset registered in dm_control.
-        import_dir (Text): Path to rodent tracking model.
+        model_dir (Text): Path to rodent tracking model.
     """
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -909,7 +919,7 @@ def npmp_embed_single_batch():
         help="Name of dataset registered in dm_control.",
     )
     parser.add_argument(
-        "import_dir",
+        "model_dir",
         help="path to rodent tracking model.",
     )
     parser.add_argument(
