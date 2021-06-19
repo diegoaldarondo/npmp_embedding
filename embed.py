@@ -356,7 +356,7 @@ class NpmpEmbedder:
         # Set up the stac parameters to compute the inferred keypoints
         # in CoMic rollouts.
         params = load_params(self.stac_params)
-        self.setup_environment(torque_actuators, params)
+        self.setup_environment(params)
         self.setup_offsets(params)
 
     def setup_environment(self, params: Dict):
