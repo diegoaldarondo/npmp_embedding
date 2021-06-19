@@ -324,7 +324,7 @@ class NpmpEmbedder:
             torque (bool, optional): Description
         """
 
-        self.cam_list = None
+        self.cam_list = []
         self.full_inputs = None
         self.ref_path = ref_path
         self.model_dir = model_dir
@@ -351,6 +351,7 @@ class NpmpEmbedder:
         self.lstm = lstm
         self.torque_actuators = torque_actuators
 
+        # Setup the data dicts.
         self.setup_data_dicts()
 
         # Set up the stac parameters to compute the inferred keypoints
@@ -599,33 +600,8 @@ class NpmpEmbedder:
         with tf.Session() as sess:
             tf.saved_model.loader.load(sess, ["tag"], self.model_dir)
             graph = tf.get_default_graph()
-            if self.lstm:
-                self.full_inputs = {
-                    k: sess.graph.get_tensor_by_name(v)
-                    for k, v in LSTM_FULL_INPUTS.items()
-                }
-                action_output = {
-                    k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_ACTIONS.items()
-                }
-            else:
-                self.full_inputs = {
-                    k: sess.graph.get_tensor_by_name(v)
-                    for k, v in MLP_FULL_INPUTS.items()
-                }
-                action_output = {
-                    k: sess.graph.get_tensor_by_name(v) for k, v in MLP_ACTIONS.items()
-                }
-                action_output["jacobian_latent_mean"] = jacobian(
-                    sess.graph.get_tensor_by_name(
-                        "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0"
-                    ),
-                    sess.graph.get_tensor_by_name(
-                        "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0"
-                    ),
-                )
-
+            action_output = self.setup_inputs_and_outputs(sess)
             timestep, feed_dict = self.reset_rollout()
-            self.cam_list = []
             try:
                 if self.use_open_loop:
                     self.open_loop(sess, action_output, timestep, feed_dict)
@@ -637,17 +613,43 @@ class NpmpEmbedder:
                         self.data[k].append(self.data[k][-1])
                 # while len(cam_list) < self.video_length:
                 #     self.cam_list.append(self.cam_list[-1])
-                self.checkpoint_eval_video(
-                    os.path.join(self.save_dir, "video", str(self.start_step) + ".mp4")
-                )
-                self.save_checkpoint(
-                    os.path.join(self.save_dir, "logs", str(self.start_step) + ".mat")
-                )
-                # Clear the cam list to keep memory low.
-                self.cam_list = []
+                self.checkpoint()
 
-            # TODO(Why is this here?)
-            action_output_np = sess.run(action_output, feed_dict)
+            # # TODO(Why is this here?)
+            # action_output_np = sess.run(action_output, feed_dict)
+
+    def setup_inputs_and_outputs(self, sess: tf.Session) -> Dict:
+        """Setup full_inputs and action_outputs for the model.
+
+        Args:
+            sess (tf.session): Tensorflow session
+
+        Returns:
+            Dict: Action output dict
+        """
+        if self.lstm:
+            self.full_inputs = {
+                k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_FULL_INPUTS.items()
+            }
+            action_output = {
+                k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_ACTIONS.items()
+            }
+        else:
+            self.full_inputs = {
+                k: sess.graph.get_tensor_by_name(v) for k, v in MLP_FULL_INPUTS.items()
+            }
+            action_output = {
+                k: sess.graph.get_tensor_by_name(v) for k, v in MLP_ACTIONS.items()
+            }
+            action_output["jacobian_latent_mean"] = jacobian(
+                sess.graph.get_tensor_by_name(
+                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0"
+                ),
+                sess.graph.get_tensor_by_name(
+                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0"
+                ),
+            )
+        return action_output
 
     def observe_data(self, action_output_np: Dict, timestep):
         """Observe model features.
@@ -710,15 +712,18 @@ class NpmpEmbedder:
 
             # Save a checkpoint of the data and video
             if n_step + 1 == self.video_length:
-                self.checkpoint_eval_video(
-                    os.path.join(self.save_dir, "video", str(self.start_step) + ".mp4")
-                )
-                self.save_checkpoint(
-                    os.path.join(self.save_dir, "logs", str(self.start_step) + ".mat")
-                )
+                self.checkpoint()
 
-                # Clear the cam list to keep memory low.
-                self.cam_list = []
+    def checkpoint(self):
+        self.checkpoint_eval_video(
+            os.path.join(self.save_dir, "video", str(self.start_step) + ".mp4")
+        )
+        self.save_checkpoint(
+            os.path.join(self.save_dir, "logs", str(self.start_step) + ".mat")
+        )
+
+        # Clear the cam list to keep memory low.
+        self.cam_list = []
 
     def open_loop(
         self,
