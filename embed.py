@@ -39,6 +39,7 @@ import yaml
 import tensorflow.compat.v1 as tf
 from tensorflow.python.ops.parallel_for.gradients import jacobian
 from typing import Dict, List, Text, Tuple
+import abc
 
 mjlib = mjbindings.mjlib
 
@@ -419,6 +420,276 @@ class MlpObserver(Observer):
         self.setup_model_observables(MLP_DATA_TYPES)
 
 
+class NullObserver:
+    def __init__(self):
+        method_list = [
+            method for method in dir(Observer) if method.startswith("__") is False
+        ]
+        for method in method_list:
+            setattr(self, method, self.none)
+
+    def none():
+        pass
+
+
+class Feeder(abc.ABC):
+    def __init__(self):
+        self.full_inputs = None
+
+    def feed(self, timestep, action_output_np: np.ndarray = None):
+        feed_dict = {}
+        for obs in OBSERVATIONS:
+            feed_dict[self.full_inputs[obs]] = timestep.observation[obs]
+        for state in self.states:
+            if action_output_np is None:
+                feed_dict[self.full_inputs[state]] = np.zeros(
+                    self.full_inputs[state].shape
+                )
+            else:
+                feed_dict[self.full_inputs[state]] = action_output_np[state].flatten()
+        feed_dict[self.full_inputs["step_type"]] = timestep.step_type
+        feed_dict[self.full_inputs["reward"]] = timestep.reward
+        feed_dict[self.full_inputs["discount"]] = timestep.discount
+        return feed_dict
+
+    @abc.abstractmethod
+    def get_inputs(self) -> Dict:
+        """Setup full_inputs for the model.
+
+        Returns:
+            Dict: full input dict
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_outputs(self) -> Dict:
+        """Setup full_inputs for the model.
+
+        Returns:
+            Dict: Action output dict
+        """
+        pass
+
+
+class LstmFeeder(Feeder):
+    def __init__(self, *args, **kwargs):
+        self.states = LSTM_STATES
+        super().__init__(*args, **kwargs)
+
+    def get_inputs(self, sess: tf.Session) -> Dict:
+        """Setup full_inputs for the model.
+
+        Args:
+            sess (tf.Session): Current tf session.
+
+        Returns:
+            Dict: full input dict
+        """
+        self.full_inputs = {
+            k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_FULL_INPUTS.items()
+        }
+        return self.full_inputs
+
+    def get_outputs(self, sess: tf.Session) -> Dict:
+        """Setup action output for the model.
+
+        Args:
+            sess (tf.Session): Current tf session.
+
+        Returns:
+            Dict: Action output dict
+        """
+        action_output = {
+            k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_ACTIONS.items()
+        }
+        return action_output
+
+
+class MlpFeeder(Feeder):
+    def __init__(self, *args, **kwargs):
+        self.states = MLP_STATES
+        super().__init__(*args, **kwargs)
+
+    def get_inputs(self, sess: tf.Session) -> Dict:
+        """Setup full_inputs for the model.
+
+        Args:
+            sess (tf.Session): Current tf session.
+
+        Returns:
+            Dict: full input dict
+        """
+        self.full_inputs = {
+            k: sess.graph.get_tensor_by_name(v) for k, v in MLP_FULL_INPUTS.items()
+        }
+        return self.full_inputs
+
+    def get_outputs(self, sess: tf.Session) -> Dict:
+        """Setup action output for the model.
+
+        Args:
+            sess (tf.Session): Current tf session.
+
+        Returns:
+            Dict: Action output dict
+        """
+        action_output = {
+            k: sess.graph.get_tensor_by_name(v) for k, v in MLP_ACTIONS.items()
+        }
+        action_output["jacobian_latent_mean"] = jacobian(
+            sess.graph.get_tensor_by_name(
+                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0"
+            ),
+            sess.graph.get_tensor_by_name(
+                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0"
+            ),
+        )
+        return action_output
+
+
+class Loop(abc.ABC):
+    def __init__(self, env, feeder: Feeder, start_step: int, video_length: int):
+        self.env = env
+        self.feeder = feeder
+        self.start_step = start_step
+        self.video_length = video_length
+        self.full_inputs = None
+        self.states = None
+        self.lstm = False
+
+    def reset(self):
+        """Restart an environment from the start_step
+
+        Returns:
+            (TYPE): Current timestep
+            Dict: Input dictionary with updated values
+        """
+        timestep = self.env.reset()
+        feed_dict = self.feeder.feed(timestep, action_output_np=None)
+        return timestep, feed_dict
+
+    def step(self, action_output_np: Dict):
+        """Perform a single step within an environment.
+
+        Args:
+            action_output_np (Dict): Description
+
+        Returns:
+            (TYPE): Current timestep
+            Dict: Input dictionary with updated values
+        """
+        # timestep = self.environment.step(action_output_np["action"])
+        timestep = self.env.step(action_output_np["action_mean"])
+        feed_dict = self.feeder.feed(timestep, action_output_np)
+        return timestep, feed_dict
+
+    @abc.abstractmethod
+    def loop(
+        self,
+        sess: tf.Session,
+        action_output: Dict,
+        timestep,
+        feed_dict: Dict,
+        observer: Observer = NullObserver(),
+    ):
+        pass
+
+    def initialize(self, sess: tf.Session) -> Tuple:
+        """Initialize the loop.
+
+        Args:
+            sess (tf.Session): Current tf session
+
+        Returns:
+            Tuple: Timestep, feed_dict, action_output
+        """
+        _ = self.feeder.get_inputs(sess)
+        action_output = self.feeder.get_outputs(sess)
+        timestep, feed_dict = self.reset()
+        return timestep, feed_dict, action_output
+
+
+class ClosedLoop(Loop):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def loop(
+        self,
+        sess: tf.Session,
+        action_output: Dict,
+        timestep,
+        feed_dict: Dict,
+        observer: Observer = NullObserver(),
+    ):
+        """Roll-out the model in closed loop with the environment.
+
+        Args:
+            sess (tf.Session): Tensorflow session
+            action_output (Dict): Dictionary of logged outputs
+            timestep (TYPE): Timestep object for the current roll out.
+            feed_dict (Dict): Dictionary of inputs
+        """
+        for n_step in range(self.video_length):
+            print(n_step, flush=True)
+            observer.grab_frame()
+
+            # If the task failed, restart at the new step
+            if timestep.last():
+                self.env.task.start_step = n_step
+                timestep, feed_dict = self.reset()
+
+            # Get the action and step in the environment
+            action_output_np = sess.run(action_output, feed_dict)
+            timestep, feed_dict = self.step(action_output_np)
+
+            # Make observations
+            observer.observe(action_output_np, timestep)
+
+            # Save a checkpoint of the data and video
+            if n_step + 1 == self.video_length:
+                observer.checkpoint(str(self.start_step))
+
+
+class OpenLoop(Loop):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def loop(
+        self,
+        sess: tf.Session,
+        action_output: Dict,
+        timestep,
+        feed_dict: Dict,
+        observer: Observer = NullObserver(),
+    ):
+        """Roll out the model in open loop with the environment.
+
+        Args:
+            sess (tf.Session): Tensorflow session
+            action_output (Dict): Dictionary of logged outputs
+            timestep (TYPE): Timestep object for the current roll out.
+            feed_dict (Dict): Dictionary of inputs
+        """
+        # count = self.start_step
+        for n_step in range(self.video_length):
+            observer.grab_frame()
+
+            print(n_step, flush=True)
+            self.env.task.start_step = n_step
+            timestep, feed_dict = self.reset()
+
+            # Get the action and step in the environment
+            action_output_np = sess.run(action_output, feed_dict)
+            timestep, feed_dict = self.step(action_output_np)
+
+            # Make observations
+            observer.observe(action_output_np, timestep)
+
+            # Save a checkpoint of the data and video
+            if n_step + 1 == self.video_length:
+                observer.checkpoint(str(self.start_step))
+
+
 class NpmpEmbedder:
     """Utility class to roll out model for new snippets.
 
@@ -505,7 +776,6 @@ class NpmpEmbedder:
         """
 
         self.cam_list = []
-        self.full_inputs = None
         self.ref_path = ref_path
         self.model_dir = model_dir
         self.arena = arena
@@ -528,8 +798,6 @@ class NpmpEmbedder:
         self.lstm = lstm
         self.torque_actuators = torque_actuators
 
-        self.setup_feeder()
-
         # Set up the stac parameters to compute the inferred keypoints
         # in CoMic rollouts.
         params = load_params(self.stac_params)
@@ -539,15 +807,19 @@ class NpmpEmbedder:
         # Setup the observer
         if self.lstm:
             self.observer = LstmObserver(self.environment, save_dir)
+            self.feeder = LstmFeeder()
         else:
             self.observer = MlpObserver(self.environment, save_dir)
+            self.feeder = MlpFeeder()
 
-    def setup_feeder(self):
-        # Create model-specific states lists and datatypes
-        if self.lstm:
-            self.states = LSTM_STATES
+        if self.use_open_loop:
+            self.loop = OpenLoop(
+                self.environment, self.feeder, self.start_step, self.video_length
+            )
         else:
-            self.states = MLP_STATES
+            self.loop = ClosedLoop(
+                self.environment, self.feeder, self.start_step, self.video_length
+            )
 
     def setup_environment(self, params: Dict):
         """Setup task and environment
@@ -590,166 +862,20 @@ class NpmpEmbedder:
         for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
             sites[n_site].pos = p
 
-    def reset_rollout(self):
-        """Restart an environment from the start_step
-
-        Returns:
-            (TYPE): Current timestep
-            Dict: Input dictionary with updated values
-        """
-        timestep = self.environment.reset()
-        feed_dict = {}
-        for obs in OBSERVATIONS:
-            feed_dict[self.full_inputs[obs]] = timestep.observation[obs]
-        for state in self.states:
-            feed_dict[self.full_inputs[state]] = np.zeros(self.full_inputs[state].shape)
-        feed_dict[self.full_inputs["step_type"]] = timestep.step_type
-        feed_dict[self.full_inputs["reward"]] = timestep.reward
-        feed_dict[self.full_inputs["discount"]] = timestep.discount
-        return timestep, feed_dict
-
-    def step_rollout(self, action_output_np: Dict):
-        """Perform a single step within an environment.
-
-        Args:
-            action_output_np (Dict): Description
-
-        Returns:
-            (TYPE): Current timestep
-            Dict: Input dictionary with updated values
-        """
-        # timestep = self.environment.step(action_output_np["action"])
-        timestep = self.environment.step(action_output_np["action_mean"])
-        feed_dict = {}
-        for obs in OBSERVATIONS:
-            feed_dict[self.full_inputs[obs]] = timestep.observation[obs]
-        for state in self.states:
-            feed_dict[self.full_inputs[state]] = action_output_np[state].flatten()
-        feed_dict[self.full_inputs["step_type"]] = timestep.step_type
-        feed_dict[self.full_inputs["reward"]] = timestep.reward
-        feed_dict[self.full_inputs["discount"]] = timestep.discount
-        return timestep, feed_dict
-
     def embed(self):
         """Embed trajectories using comic model."""
         with tf.Session() as sess:
             tf.saved_model.loader.load(sess, ["tag"], self.model_dir)
             graph = tf.get_default_graph()
-            action_output = self.setup_inputs_and_outputs(sess)
-            timestep, feed_dict = self.reset_rollout()
+            timestep, feed_dict, action_output = self.loop.initialize(sess)
             try:
-                if self.use_open_loop:
-                    self.open_loop(sess, action_output, timestep, feed_dict)
-                else:
-                    self.closed_loop(sess, action_output, timestep, feed_dict)
+                self.loop.loop(sess, action_output, timestep, feed_dict, self.observer)
             except IndexError:
                 while len(self.observer.data["reward"]) < self.video_length:
                     for k in self.observer.data.keys():
                         self.observer.data[k].append(self.observer.data[k][-1])
                 # while len(cam_list) < self.video_length:
                 #     self.cam_list.append(self.cam_list[-1])
-                self.observer.checkpoint(str(self.start_step))
-
-    def setup_inputs_and_outputs(self, sess: tf.Session) -> Dict:
-        """Setup full_inputs and action_outputs for the model.
-
-        Args:
-            sess (tf.session): Tensorflow session
-
-        Returns:
-            Dict: Action output dict
-        """
-        if self.lstm:
-            self.full_inputs = {
-                k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_FULL_INPUTS.items()
-            }
-            action_output = {
-                k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_ACTIONS.items()
-            }
-        else:
-            self.full_inputs = {
-                k: sess.graph.get_tensor_by_name(v) for k, v in MLP_FULL_INPUTS.items()
-            }
-            action_output = {
-                k: sess.graph.get_tensor_by_name(v) for k, v in MLP_ACTIONS.items()
-            }
-            action_output["jacobian_latent_mean"] = jacobian(
-                sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0"
-                ),
-                sess.graph.get_tensor_by_name(
-                    "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0"
-                ),
-            )
-        return action_output
-
-    def closed_loop(
-        self,
-        sess: tf.Session,
-        action_output: Dict,
-        timestep,
-        feed_dict: Dict,
-    ):
-        """Roll-out the model in closed loop with the environment.
-
-        Args:
-            sess (tf.Session): Tensorflow session
-            action_output (Dict): Dictionary of logged outputs
-            timestep (TYPE): Timestep object for the current roll out.
-            feed_dict (Dict): Dictionary of inputs
-        """
-        for n_step in range(self.video_length):
-            print(n_step, flush=True)
-            self.observer.grab_frame()
-
-            # If the task failed, restart at the new step
-            if timestep.last():
-                self.environment.task.start_step = n_step
-                timestep, feed_dict = self.reset_rollout()
-
-            # Get the action and step in the environment
-            action_output_np = sess.run(action_output, feed_dict)
-            timestep, feed_dict = self.step_rollout(action_output_np)
-
-            # Make observations
-            self.observer.observe(action_output_np, timestep)
-
-            # Save a checkpoint of the data and video
-            if n_step + 1 == self.video_length:
-                self.observer.checkpoint(str(self.start_step))
-
-    def open_loop(
-        self,
-        sess: tf.Session,
-        action_output: Dict,
-        timestep,
-        feed_dict: Dict,
-    ):
-        """Roll out the model in open loop with the environment.
-
-        Args:
-            sess (tf.Session): Tensorflow session
-            action_output (Dict): Dictionary of logged outputs
-            timestep (TYPE): Timestep object for the current roll out.
-            feed_dict (Dict): Dictionary of inputs
-        """
-        # count = self.start_step
-        for n_step in range(self.video_length):
-            self.observer.grab_frame()
-
-            print(n_step, flush=True)
-            self.environment.task.start_step = n_step
-            timestep, feed_dict = self.reset_rollout()
-
-            # Get the action and step in the environment
-            action_output_np = sess.run(action_output, feed_dict)
-            timestep, feed_dict = self.step_rollout(action_output_np)
-
-            # Make observations
-            self.observer.observe(action_output_np, timestep)
-
-            # Save a checkpoint of the data and video
-            if n_step + 1 == self.video_length:
                 self.observer.checkpoint(str(self.start_step))
 
 

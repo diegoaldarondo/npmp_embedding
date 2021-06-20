@@ -18,11 +18,11 @@ NPMP = embed.NpmpEmbedder(
     params["dataset"],
     params["stac_params"],
     params["offset_path"],
-    lstm=False,
-    torque_actuators=True,
+    lstm=params["lstm"],
+    torque_actuators=params["torque_actuators"],
     start_step=0,
-    end_step=20,
-    video_length=20,
+    end_step=5,
+    video_length=5,
 )
 
 
@@ -55,6 +55,20 @@ class ObserverTest(absltest.TestCase):
     def grab_frame(self):
         NPMP.observer.grab_frame()
         self.assertEqual(NPMP.observer.cam_list[0].shape, tuple(embed.IMAGE_SIZE))
+
+
+class LoopTest(absltest.TestCase):
+    def test_open(self):
+        NPMP.loop = embed.OpenLoop(
+            NPMP.environment, NPMP.feeder, NPMP.start_step, NPMP.video_length
+        )
+        NPMP.embed()
+
+    def test_closed(self):
+        NPMP.loop = embed.ClosedLoop(
+            NPMP.environment, NPMP.feeder, NPMP.start_step, NPMP.video_length
+        )
+        NPMP.embed()
 
 
 if __name__ == "__main__":
