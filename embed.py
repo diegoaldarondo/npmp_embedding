@@ -691,10 +691,12 @@ class OpenLoop(Loop):
 
 
 class System:
-    """A system includes an environment with tasks and walkers."""    
+    """A system includes an environment with tasks and walkers."""
+
     def __init__(
         self,
         ref_path: Text,
+        model_dir: Text,
         dataset: Text,
         stac_params: Text,
         offset_path: Text = None,
@@ -711,8 +713,40 @@ class System:
         start_step: int = 0,
         torque_actuators: bool = False,
     ):
+        """Utility class to roll out model for new snippets.
+
+        Attributes:
+            arena (composer.Arena, optional): Arena in which to perform roll out.
+            body_error_multiplier (float): Scaling factor for body error.
+            cam_list (list): List of rendered video frames over time.
+            camera_id (Text): Name of the camera to use for rendering.
+            data (Dict): Observed data
+            dataset (Text): Name of dataset registered in dm_control.
+            end_step (int): Last step of video
+            environment (composer.Environment): Environment for roll out.
+            full_inputs (Dict): All inputs to model.
+            model_dir (Text): Directory of trained model.
+            lstm (bool): Set to true if rolling out an LSTM model.
+            max_action (float): Maximum value of action.
+            min_action (float): Minimum value of action.
+            min_steps (int): Minimum number of steps in a roll out.
+            offset_path (Text): Path to offsets .pickle file.
+            physics_timestep (float): Timestep for physics calculations
+            ref_path (Text): Path to reference snippet.
+            ref_steps (Tuple): Reference steps. e.g (1, 2, 3, 4, 5)
+            reward_type (Text): Type of reward. Default "rat_mimic_force"
+            save_dir (Text): Path to saving directory.
+            scene_option (wrapper.MjvOption): MjvOptions for scene rendering.
+            seg_frames (bool): If True, segment animal from background in video.
+            stac_params (Text): Path to stack params.yaml file.
+            start_step (int): First step of video
+            termination_error_threshold (float, optional): Error threshold at which to stop roll out.
+            use_open_loop (bool): If True, use open-loop during roll out.
+            video_length (int): Length of snippet in frames.
+        """
 
         self.ref_path = ref_path
+        self.model_dir = model_dir
         self.arena = arena
         self.stac_params = stac_params
         self.offset_path = offset_path
@@ -776,39 +810,43 @@ class System:
         for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
             sites[n_site].pos = p
 
+    def load_model(self, sess: tf.Session):
+        tf.saved_model.loader.load(sess, ["tag"], self.model_dir)
+
+
+class Experiment:
+    def __init__(
+        self,
+        system: System,
+        observer: Observer,
+        feeder: Feeder,
+        loop: Loop,
+    ):
+        self.system = system
+        self.observer = observer
+        self.feeder = feeder
+        self.loop = loop
+
+    def run(self):
+        """Run the environment using comic model."""
+        with tf.Session() as sess:
+            self.system.load_model(sess)
+            graph = tf.get_default_graph()
+            timestep, feed_dict, action_output = self.loop.initialize(sess)
+            try:
+                self.loop.loop(sess, action_output, timestep, feed_dict, self.observer)
+            except IndexError:
+                while len(self.observer.data["reward"]) < self.loop.video_length:
+                    for data_type in self.observer.data.keys():
+                        self.observer.data[data_type].append(
+                            self.observer.data[data_type][-1]
+                        )
+                # while len(cam_list) < self.video_length:
+                #     self.cam_list.append(self.cam_list[-1])
+                self.observer.checkpoint(str(self.loop.start_step))
+
+
 class NpmpEmbedder:
-    """Utility class to roll out model for new snippets.
-
-    Attributes:
-        arena (composer.Arena, optional): Arena in which to perform roll out.
-        body_error_multiplier (float): Scaling factor for body error.
-        cam_list (list): List of rendered video frames over time.
-        camera_id (Text): Name of the camera to use for rendering.
-        data (Dict): Observed data
-        dataset (Text): Name of dataset registered in dm_control.
-        end_step (int): Last step of video
-        environment (composer.Environment): Environment for roll out.
-        full_inputs (Dict): All inputs to model.
-        model_dir (Text): Directory of trained model.
-        lstm (bool): Set to true if rolling out an LSTM model.
-        max_action (float): Maximum value of action.
-        min_action (float): Minimum value of action.
-        min_steps (int): Minimum number of steps in a roll out.
-        offset_path (Text): Path to offsets .pickle file.
-        physics_timestep (float): Timestep for physics calculations
-        ref_path (Text): Path to reference snippet.
-        ref_steps (Tuple): Reference steps. e.g (1, 2, 3, 4, 5)
-        reward_type (Text): Type of reward. Default "rat_mimic_force"
-        save_dir (Text): Path to saving directory.
-        scene_option (wrapper.MjvOption): MjvOptions for scene rendering.
-        seg_frames (bool): If True, segment animal from background in video.
-        stac_params (Text): Path to stack params.yaml file.
-        start_step (int): First step of video
-        termination_error_threshold (float, optional): Error threshold at which to stop roll out.
-        use_open_loop (bool): If True, use open-loop during roll out.
-        video_length (int): Length of snippet in frames.
-    """
-
     def __init__(
         self,
         ref_path: Text,
@@ -886,22 +924,22 @@ class NpmpEmbedder:
 
         # Setup the system
         self.system = System(
-            ref_path = self.ref_path,
-            dataset = self.dataset,
-            stac_params = self.stac_params,
-            offset_path = self.offset_path,
-            arena = self.arena,
-            ref_steps = self.ref_steps,
-            termination_error_threshold = self.termination_error_threshold,
-            min_steps = self.min_steps,
-            reward_type = self.reward_type,
-            physics_timestep = self.physics_timestep,
-            body_error_multiplier = self.body_error_multiplier,
-            video_length = self.video_length,
-            min_action = self.min_action,
-            max_action = self.max_action,
-            start_step = self.start_step,
-            torque_actuators = self.torque_actuators,
+            ref_path=self.ref_path,
+            dataset=self.dataset,
+            stac_params=self.stac_params,
+            offset_path=self.offset_path,
+            arena=self.arena,
+            ref_steps=self.ref_steps,
+            termination_error_threshold=self.termination_error_threshold,
+            min_steps=self.min_steps,
+            reward_type=self.reward_type,
+            physics_timestep=self.physics_timestep,
+            body_error_multiplier=self.body_error_multiplier,
+            video_length=self.video_length,
+            min_action=self.min_action,
+            max_action=self.max_action,
+            start_step=self.start_step,
+            torque_actuators=self.torque_actuators,
         )
 
         # Setup the observer
@@ -1098,16 +1136,50 @@ def npmp_embed_single_batch():
         default="_batch_args.p",
         help="Path to stac output with offset(.p).",
     )
+    parser.add_argument(
+        "--use-open-loop",
+        dest="use_open_loop",
+        default=False,
+        help="If True, use open loop.",
+    )
     args = parser.parse_args()
+
     # Load in parameters to modify
     with open(args.batch_file, "rb") as file:
         batch_args = pickle.load(file)
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
-    # task_id = 0
     batch_args = batch_args[task_id]
     print(batch_args)
-    args = args.__dict__
-    del args["batch_file"]
+    # args = args.__dict__
+    # del args["batch_file"]
+
+    system = System(
+        ref_path=args.ref_path,
+        model_dir=args.model_dir,
+        dataset=args.dataset,
+        stac_params=args.stac_params,
+        offset_path=args.offset_path,
+        start_step=batch_args["start_step"],
+        torque_actuators=batch_args["torque_actuators"],
+    )
+    if batch_args["lstm"]:
+        observer = LstmObserver(system.environment, args.save_dir)
+        feeder = LstmFeeder()
+    else:
+        observer = MlpObserver(system.environment, args.save_dir)
+        feeder = MlpFeeder()
+
+    if args.use_open_loop:
+        loop = OpenLoop(
+            system.environment, feeder, batch_args["start_step"], args.video_length
+        )
+    else:
+        loop = ClosedLoop(
+            system.environment, feeder, batch_args["start_step"], args.video_length
+        )
+
+    Experiment(system, observer, feeder, loop)
+
     npmp = NpmpEmbedder(**args, **batch_args)
     npmp.embed()
 
