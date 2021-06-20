@@ -690,6 +690,92 @@ class OpenLoop(Loop):
                 observer.checkpoint(str(self.start_step))
 
 
+class System:
+    """A system includes an environment with tasks and walkers."""    
+    def __init__(
+        self,
+        ref_path: Text,
+        dataset: Text,
+        stac_params: Text,
+        offset_path: Text = None,
+        arena: composer.Arena = floors.Floor(size=(10.0, 10.0)),
+        ref_steps: Tuple = (1, 2, 3, 4, 5),
+        termination_error_threshold: float = 0.25,
+        min_steps: int = 10,
+        reward_type: Text = "rat_mimic_force",
+        physics_timestep: float = 0.001,
+        body_error_multiplier: float = 10,
+        video_length: int = 2500,
+        min_action: float = -1.0,
+        max_action: float = 1.0,
+        start_step: int = 0,
+        torque_actuators: bool = False,
+    ):
+
+        self.ref_path = ref_path
+        self.arena = arena
+        self.stac_params = stac_params
+        self.offset_path = offset_path
+        self.ref_steps = ref_steps
+        self.termination_error_threshold = termination_error_threshold
+        self.min_steps = min_steps
+        self.dataset = dataset
+        self.reward_type = reward_type
+        self.physics_timestep = physics_timestep
+        self.body_error_multiplier = body_error_multiplier
+        self.video_length = video_length
+        self.min_action = min_action
+        self.max_action = max_action
+        self.start_step = start_step
+        self.torque_actuators = torque_actuators
+
+        # Set up the stac parameters to compute the inferred keypoints
+        # in CoMic rollouts.
+        params = load_params(self.stac_params)
+        self.setup_environment(params)
+        self.setup_offsets(params)
+
+    def setup_environment(self, params: Dict):
+        """Setup task and environment
+
+        Args:
+            params (Dict): Stac parameters dict
+        """
+        task = tracking.SingleClipTracking(
+            clip_id="clip_%d" % (self.start_step),
+            clip_length=self.video_length + np.max(self.ref_steps) + 1,
+            walker=lambda **kwargs: walker_fn(
+                params=params, torque_actuators=self.torque_actuators, **kwargs
+            ),
+            arena=self.arena,
+            ref_path=self.ref_path,
+            ref_steps=self.ref_steps,
+            termination_error_threshold=self.termination_error_threshold,
+            dataset=self.dataset,
+            min_steps=self.min_steps,
+            reward_type=self.reward_type,
+            physics_timestep=self.physics_timestep,
+            body_error_multiplier=self.body_error_multiplier,
+        )
+        self.environment = action_scale.Wrapper(
+            composer.Environment(task), self.min_action, self.max_action
+        )
+
+    def setup_offsets(self, params: Dict):
+        """Set the keypoint offsets.
+
+        Args:
+            params (Dict): Stac parameters dict.
+        """
+        if self.offset_path is not None and self.stac_params is not None:
+            params["offset_path"] = self.offset_path
+        with open(params["offset_path"], "rb") as f:
+            in_dict = pickle.load(f)
+        sites = self.environment.task._walker.body_sites
+        self.environment.physics.bind(sites).pos[:] = in_dict["offsets"]
+        for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
+            sites[n_site].pos = p
+
 class NpmpEmbedder:
     """Utility class to roll out model for new snippets.
 
@@ -798,69 +884,42 @@ class NpmpEmbedder:
         self.lstm = lstm
         self.torque_actuators = torque_actuators
 
-        # Set up the stac parameters to compute the inferred keypoints
-        # in CoMic rollouts.
-        params = load_params(self.stac_params)
-        self.setup_environment(params)
-        self.setup_offsets(params)
+        # Setup the system
+        self.system = System(
+            ref_path = self.ref_path,
+            dataset = self.dataset,
+            stac_params = self.stac_params,
+            offset_path = self.offset_path,
+            arena = self.arena,
+            ref_steps = self.ref_steps,
+            termination_error_threshold = self.termination_error_threshold,
+            min_steps = self.min_steps,
+            reward_type = self.reward_type,
+            physics_timestep = self.physics_timestep,
+            body_error_multiplier = self.body_error_multiplier,
+            video_length = self.video_length,
+            min_action = self.min_action,
+            max_action = self.max_action,
+            start_step = self.start_step,
+            torque_actuators = self.torque_actuators,
+        )
 
         # Setup the observer
         if self.lstm:
-            self.observer = LstmObserver(self.environment, save_dir)
+            self.observer = LstmObserver(self.system.environment, save_dir)
             self.feeder = LstmFeeder()
         else:
-            self.observer = MlpObserver(self.environment, save_dir)
+            self.observer = MlpObserver(self.system.environment, save_dir)
             self.feeder = MlpFeeder()
 
         if self.use_open_loop:
             self.loop = OpenLoop(
-                self.environment, self.feeder, self.start_step, self.video_length
+                self.system.environment, self.feeder, self.start_step, self.video_length
             )
         else:
             self.loop = ClosedLoop(
-                self.environment, self.feeder, self.start_step, self.video_length
+                self.system.environment, self.feeder, self.start_step, self.video_length
             )
-
-    def setup_environment(self, params: Dict):
-        """Setup task and environment
-
-        Args:
-            params (Dict): Stac parameters dict
-        """
-        task = tracking.SingleClipTracking(
-            clip_id="clip_%d" % (self.start_step),
-            clip_length=self.video_length + np.max(self.ref_steps) + 1,
-            walker=lambda **kwargs: walker_fn(
-                params=params, torque_actuators=self.torque_actuators, **kwargs
-            ),
-            arena=self.arena,
-            ref_path=self.ref_path,
-            ref_steps=self.ref_steps,
-            termination_error_threshold=self.termination_error_threshold,
-            dataset=self.dataset,
-            min_steps=self.min_steps,
-            reward_type=self.reward_type,
-            physics_timestep=self.physics_timestep,
-            body_error_multiplier=self.body_error_multiplier,
-        )
-        self.environment = action_scale.Wrapper(
-            composer.Environment(task), self.min_action, self.max_action
-        )
-
-    def setup_offsets(self, params: Dict):
-        """Set the keypoint offsets.
-
-        Args:
-            params (Dict): Stac parameters dict.
-        """
-        if self.offset_path is not None and self.stac_params is not None:
-            params["offset_path"] = self.offset_path
-        with open(params["offset_path"], "rb") as f:
-            in_dict = pickle.load(f)
-        sites = self.environment.task._walker.body_sites
-        self.environment.physics.bind(sites).pos[:] = in_dict["offsets"]
-        for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
-            sites[n_site].pos = p
 
     def embed(self):
         """Embed trajectories using comic model."""

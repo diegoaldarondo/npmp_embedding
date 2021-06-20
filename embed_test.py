@@ -60,13 +60,13 @@ class ObserverTest(absltest.TestCase):
 class LoopTest(absltest.TestCase):
     def test_open(self):
         NPMP.loop = embed.OpenLoop(
-            NPMP.environment, NPMP.feeder, NPMP.start_step, NPMP.video_length
+            NPMP.system.environment, NPMP.feeder, NPMP.start_step, NPMP.video_length
         )
         NPMP.embed()
 
     def test_closed(self):
         NPMP.loop = embed.ClosedLoop(
-            NPMP.environment, NPMP.feeder, NPMP.start_step, NPMP.video_length
+            NPMP.system.environment, NPMP.feeder, NPMP.start_step, NPMP.video_length
         )
         NPMP.embed()
 
