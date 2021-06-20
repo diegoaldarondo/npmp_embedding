@@ -237,6 +237,188 @@ def walker_fn(torque_actuators=False, **kwargs) -> rodent.Rat:
     return rodent.Rat(torque_actuators=torque_actuators, foot_mods=True, **kwargs)
 
 
+class Observer:
+    def __init__(
+        self,
+        env,
+        save_dir,
+        seg_frames: bool = False,
+        camera_id: Text = "Camera1",
+    ):
+        self.env = env
+        self.save_dir = save_dir
+        self.data = {}
+        self.cam_list = []
+        self.seg_frames = seg_frames
+        self.camera_id = camera_id
+        self.scene_option = None
+        self.setup_data_dicts()
+        self.setup_scene_rendering()
+        self.env.reset()
+
+    def setup_data_dicts(self):
+        """Initialize data dictionary"""
+        for data_type in DATA_TYPES:
+            self.data[data_type] = []
+        for obs in OBSERVATIONS:
+            self.data[obs] = []
+        self.data["reset"] = []
+
+    def setup_model_observables(self, observables):
+        self.data_types = observables
+        for data_type in self.data_types:
+            self.data[data_type] = []
+
+    def setup_scene_rendering(self):
+        """Set the scene to segment the frames or not."""
+        # Add the camera
+        # self.environment.task._arena._mjcf_root.worldbody.add(
+        #     "camera",
+        #     name="CameraE",
+        #     pos=[-0.0452, 1.5151, 0.3174],
+        #     fovy=50,
+        #     quat="0.0010 -0.0202 -0.7422 -0.6699",
+        # )
+
+        # To get the quaternion, you need to convert the matlab camera rotation matrrix:
+        # eul = rotm2eul(r,'ZYX')
+        # eul(3) = eul(3) + pi
+        # quat = rotm2quat(eul,'ZYX')
+        # This converts matlab definition of the camera frame (X right Y down Z forward)
+        # to the mujoco version (X right, Y up, Z backward)
+        self.env.task._arena._mjcf_root.worldbody.add(
+            "camera",
+            name="Camera1",
+            pos=[-0.8781364, 0.3775911, 0.4291190],
+            fovy=50,
+            quat="0.5353    0.3435   -0.4623   -0.6178",
+        )
+        if self.seg_frames:
+            self.scene_option = wrapper.MjvOption()
+            self.env.physics.model.skin_rgba[0][3] = 0.0
+            self.scene_option.geomgroup[2] = 0
+            self.scene_option._ptr.contents.flags[
+                enums.mjtVisFlag.mjVIS_TRANSPARENT
+            ] = False
+            self.scene_option._ptr.contents.flags[enums.mjtVisFlag.mjVIS_LIGHT] = False
+            self.scene_option._ptr.contents.flags[
+                enums.mjtVisFlag.mjVIS_TEXTURE
+            ] = False
+        else:
+            self.scene_option = wrapper.MjvOption()
+            self.scene_option.geomgroup[2] = 0
+            self.scene_option._ptr.contents.flags[
+                enums.mjtVisFlag.mjVIS_TRANSPARENT
+            ] = True
+
+    def observe(self, action_output_np: Dict, timestep):
+        """Observe model features.
+
+        Args:
+            action_output_np (Dict): Description
+            timestep (TYPE): Description
+        """
+        for data_type in self.data_types:
+            self.data[data_type].append(action_output_np[data_type])
+        self.data["reward"].append(timestep.reward)
+        self.data["walker_body_sites"].append(
+            np.copy(self.env.physics.bind(self.env.task._walker.body_sites).xpos[:])
+        )
+        self.data["qfrc"].append(np.copy(self.env.physics.named.data.qfrc_actuator[:]))
+        self.data["qpos"].append(np.copy(self.env.physics.named.data.qpos[:]))
+        self.data["qvel"].append(np.copy(self.env.physics.named.data.qvel[:]))
+        self.data["qacc"].append(np.copy(self.env.physics.named.data.qacc[:]))
+        self.data["xpos"].append(np.copy(self.env.physics.named.data.xpos[:]))
+        for obs in OBSERVATIONS:
+            self.data[obs].append(timestep.observation[obs])
+        self.data["reset"].append(timestep.last())
+
+    def grab_frame(self):
+        """Render a frame normally or with segmentation."""
+        if self.seg_frames:
+            rgbArr = self.env.physics.render(
+                IMAGE_SIZE[0],
+                IMAGE_SIZE[1],
+                camera_id=self.camera_id,
+                scene_option=self.scene_option,
+            )
+            seg = self.env.physics.render(
+                IMAGE_SIZE[0],
+                IMAGE_SIZE[1],
+                camera_id=self.camera_id,
+                scene_option=self.scene_option,
+                segmentation=True,
+            )
+            bkgrd = (seg[:, :, 0] == -1) & (seg[:, :, 1] == -1)
+            floor = (seg[:, :, 0] == 0) & (seg[:, :, 1] == 5)
+            rgbArr[:, :, 0] *= ~bkgrd[:, :]
+            rgbArr[:, :, 1] *= ~bkgrd[:, :]
+            rgbArr[:, :, 2] *= ~bkgrd[:, :]
+            rgbArr[:, :, 0] *= ~floor[:, :]
+            rgbArr[:, :, 1] *= ~floor[:, :]
+            rgbArr[:, :, 2] *= ~floor[:, :]
+            self.cam_list.append(rgbArr)
+        else:
+            self.cam_list.append(
+                self.env.physics.render(
+                    IMAGE_SIZE[0],
+                    IMAGE_SIZE[1],
+                    camera_id=self.camera_id,
+                    # camera_id="walker/close_profile",
+                    scene_option=self.scene_option,
+                )
+            )
+
+    def checkpoint(self, file_name: Text):
+        """Checkpoint the observations."""
+        self.checkpoint_video(os.path.join(self.save_dir, "video", file_name + ".mp4"))
+        self.checkpoint_data(os.path.join(self.save_dir, "logs", file_name + ".mat"))
+
+        # Clear the cam list to keep memory low.
+        self.cam_list = []
+
+    def checkpoint_video(self, filename: Text, fps: int = FPS):
+        """Write a video to disk.
+
+        Args:
+            filename (Text): Filename of video to save.
+            fps (int, optional): Frames per second of encoded video.
+        """
+        if not os.path.exists(os.path.dirname(filename)):
+            os.makedirs(os.path.dirname(filename))
+        print("Writing to %s" % (filename))
+        with imageio.get_writer(filename, fps=fps) as video:
+            print(len(self.cam_list))
+            for frame in self.cam_list:
+                video.append_data(frame)
+
+    def checkpoint_data(self, save_path: Text):
+        """Save data checkoint.
+
+        Args:
+            save_path (Text): Directory in which to save output.
+        """
+        if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
+
+        action_names = self.env.physics.named.data.act.axes.row.names
+        out_dict = {k: np.array(v) for k, v in self.data.items()}
+        out_dict["action_names"] = action_names
+        savemat(save_path, out_dict)
+
+
+class LstmObserver(Observer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setup_model_observables(LSTM_DATA_TYPES)
+
+
+class MlpObserver(Observer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setup_model_observables(MLP_DATA_TYPES)
+
+
 class NpmpEmbedder:
     """Utility class to roll out model for new snippets.
 
@@ -290,8 +472,6 @@ class NpmpEmbedder:
         min_action: float = -1.0,
         max_action: float = 1.0,
         start_step: int = 0,
-        seg_frames: bool = False,
-        camera_id: Text = "Camera1",
         use_open_loop: bool = False,
         lstm: bool = False,
         torque_actuators: bool = False,
@@ -328,7 +508,6 @@ class NpmpEmbedder:
         self.full_inputs = None
         self.ref_path = ref_path
         self.model_dir = model_dir
-        self.save_dir = save_dir
         self.arena = arena
         self.stac_params = stac_params
         self.offset_path = offset_path
@@ -345,20 +524,30 @@ class NpmpEmbedder:
         self.min_action = min_action
         self.max_action = max_action
         self.start_step = start_step
-        self.seg_frames = seg_frames
-        self.camera_id = camera_id
         self.use_open_loop = use_open_loop
         self.lstm = lstm
         self.torque_actuators = torque_actuators
 
-        # Setup the data dicts.
-        self.setup_data_dicts()
+        self.setup_feeder()
 
         # Set up the stac parameters to compute the inferred keypoints
         # in CoMic rollouts.
         params = load_params(self.stac_params)
         self.setup_environment(params)
         self.setup_offsets(params)
+
+        # Setup the observer
+        if self.lstm:
+            self.observer = LstmObserver(self.environment, save_dir)
+        else:
+            self.observer = MlpObserver(self.environment, save_dir)
+
+    def setup_feeder(self):
+        # Create model-specific states lists and datatypes
+        if self.lstm:
+            self.states = LSTM_STATES
+        else:
+            self.states = MLP_STATES
 
     def setup_environment(self, params: Dict):
         """Setup task and environment
@@ -385,9 +574,6 @@ class NpmpEmbedder:
         self.environment = action_scale.Wrapper(
             composer.Environment(task), self.min_action, self.max_action
         )
-        # Set the scene to segment the frames or not.
-        self.setup_scene_rendering()
-        self.environment.reset()
 
     def setup_offsets(self, params: Dict):
         """Set the keypoint offsets.
@@ -403,121 +589,6 @@ class NpmpEmbedder:
         self.environment.physics.bind(sites).pos[:] = in_dict["offsets"]
         for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
             sites[n_site].pos = p
-
-    def setup_data_dicts(self):
-        """Initialize data dictionary"""
-        self.data = {}
-        for data_type in DATA_TYPES:
-            self.data[data_type] = []
-        for obs in OBSERVATIONS:
-            self.data[obs] = []
-        self.data["reset"] = []
-
-        # Create model-specific states lists and datatypes
-        if self.lstm:
-            self.states = LSTM_STATES
-            self.data_types = LSTM_DATA_TYPES
-            for data_type in self.data_types:
-                self.data[data_type] = []
-        else:
-            self.states = MLP_STATES
-            self.data_types = MLP_DATA_TYPES
-            for data_type in MLP_DATA_TYPES:
-                self.data[data_type] = []
-
-    def setup_scene_rendering(self):
-        """Set the scene to segment the frames or not."""
-        # Add the camera
-        # self.environment.task._arena._mjcf_root.worldbody.add(
-        #     "camera",
-        #     name="CameraE",
-        #     pos=[-0.0452, 1.5151, 0.3174],
-        #     fovy=50,
-        #     quat="0.0010 -0.0202 -0.7422 -0.6699",
-        # )
-
-        # To get the quaternion, you need to convert the matlab camera rotation matrrix:
-        # eul = rotm2eul(r,'ZYX')
-        # eul(3) = eul(3) + pi
-        # quat = rotm2quat(eul,'ZYX')
-        # This converts matlab definition of the camera frame (X right Y down Z forward)
-        # to the mujoco version (X right, Y up, Z backward)
-        self.environment.task._arena._mjcf_root.worldbody.add(
-            "camera",
-            name="Camera1",
-            pos=[-0.8781364, 0.3775911, 0.4291190],
-            fovy=50,
-            quat="0.5353    0.3435   -0.4623   -0.6178",
-        )
-        if self.seg_frames:
-            self.scene_option = wrapper.MjvOption()
-            self.environment.physics.model.skin_rgba[0][3] = 0.0
-            self.scene_option.geomgroup[2] = 0
-            self.scene_option._ptr.contents.flags[
-                enums.mjtVisFlag.mjVIS_TRANSPARENT
-            ] = False
-            self.scene_option._ptr.contents.flags[enums.mjtVisFlag.mjVIS_LIGHT] = False
-            self.scene_option._ptr.contents.flags[
-                enums.mjtVisFlag.mjVIS_TEXTURE
-            ] = False
-        else:
-            self.scene_option = wrapper.MjvOption()
-            self.scene_option.geomgroup[2] = 0
-            self.scene_option._ptr.contents.flags[
-                enums.mjtVisFlag.mjVIS_TRANSPARENT
-            ] = True
-
-    def setup_keypoint_sites(self):
-        """Add keypoint sites to estimate original keypoint positions."""
-        # Set up the stac parameters to compute the inferred mocap reference
-        # points in CoMic rollouts.
-        if self.stac_params is not None:
-            params = load_params(self.stac_params)
-
-        if self.offset_path is not None and self.stac_params is not None:
-            params["offset_path"] = self.offset_path
-        # Add keypoint sites to the mjcf model, and a reference to the sites as
-        # an attribute for easier access. This allows us to save the reference
-        # markers during CoMic roll out.
-        self.environment.task._walker.body_sites = []
-        for key, v in params["_KEYPOINT_MODEL_PAIRS"].items():
-            parent = self.environment.task._walker._mjcf_root.find("body", v)
-            pos = params["_KEYPOINT_INITIAL_OFFSETS"][key]
-            site = parent.add(
-                "site",
-                name=key,
-                type="sphere",
-                size=[0.005],
-                rgba="0 0 0 1",
-                pos=pos,
-                group=3,
-            )
-            self.environment.task._walker.body_sites.append(site)
-
-        # Get the offsets.
-        with open(params["offset_path"], "rb") as f:
-            in_dict = pickle.load(f)
-
-        sites = self.environment.task._walker.body_sites
-
-        self.environment.physics.bind(sites).pos[:] = in_dict["offsets"]
-        for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
-            sites[n_site].pos = p
-
-    def checkpoint_eval_video(self, filename: Text, fps: int = FPS):
-        """Write a video to disk.
-
-        Args:
-            filename (Text): Filename of video to save.
-            fps (int, optional): Frames per second of encoded video.
-        """
-        if not os.path.exists(os.path.dirname(filename)):
-            os.makedirs(os.path.dirname(filename))
-        print("Writing to %s" % (filename))
-        with imageio.get_writer(filename, fps=fps) as video:
-            print(len(self.cam_list))
-            for frame in self.cam_list:
-                video.append_data(frame)
 
     def reset_rollout(self):
         """Restart an environment from the start_step
@@ -559,42 +630,6 @@ class NpmpEmbedder:
         feed_dict[self.full_inputs["discount"]] = timestep.discount
         return timestep, feed_dict
 
-    def grab_frame(self):
-        """Render a frame normally or with segmentation."""
-        if self.seg_frames:
-            rgbArr = self.environment.physics.render(
-                IMAGE_SIZE[0],
-                IMAGE_SIZE[1],
-                camera_id=self.camera_id,
-                scene_option=self.scene_option,
-            )
-            seg = self.environment.physics.render(
-                IMAGE_SIZE[0],
-                IMAGE_SIZE[1],
-                camera_id=self.camera_id,
-                scene_option=self.scene_option,
-                segmentation=True,
-            )
-            bkgrd = (seg[:, :, 0] == -1) & (seg[:, :, 1] == -1)
-            floor = (seg[:, :, 0] == 0) & (seg[:, :, 1] == 5)
-            rgbArr[:, :, 0] *= ~bkgrd[:, :]
-            rgbArr[:, :, 1] *= ~bkgrd[:, :]
-            rgbArr[:, :, 2] *= ~bkgrd[:, :]
-            rgbArr[:, :, 0] *= ~floor[:, :]
-            rgbArr[:, :, 1] *= ~floor[:, :]
-            rgbArr[:, :, 2] *= ~floor[:, :]
-            self.cam_list.append(rgbArr)
-        else:
-            self.cam_list.append(
-                self.environment.physics.render(
-                    IMAGE_SIZE[0],
-                    IMAGE_SIZE[1],
-                    camera_id=self.camera_id,
-                    # camera_id="walker/close_profile",
-                    scene_option=self.scene_option,
-                )
-            )
-
     def embed(self):
         """Embed trajectories using comic model."""
         with tf.Session() as sess:
@@ -608,12 +643,12 @@ class NpmpEmbedder:
                 else:
                     self.closed_loop(sess, action_output, timestep, feed_dict)
             except IndexError:
-                while len(self.data["reward"]) < self.video_length:
-                    for k in self.data.keys():
-                        self.data[k].append(self.data[k][-1])
+                while len(self.observer.data["reward"]) < self.video_length:
+                    for k in self.observer.data.keys():
+                        self.observer.data[k].append(self.observer.data[k][-1])
                 # while len(cam_list) < self.video_length:
                 #     self.cam_list.append(self.cam_list[-1])
-                self.checkpoint()
+                self.observer.checkpoint(str(self.start_step))
 
     def setup_inputs_and_outputs(self, sess: tf.Session) -> Dict:
         """Setup full_inputs and action_outputs for the model.
@@ -648,34 +683,6 @@ class NpmpEmbedder:
             )
         return action_output
 
-    def observe_data(self, action_output_np: Dict, timestep):
-        """Observe model features.
-
-        Args:
-            action_output_np (Dict): Description
-            timestep (TYPE): Description
-        """
-        for data_type in self.data_types:
-            self.data[data_type].append(action_output_np[data_type])
-        self.data["reward"].append(timestep.reward)
-        self.data["walker_body_sites"].append(
-            np.copy(
-                self.environment.physics.bind(
-                    self.environment.task._walker.body_sites
-                ).xpos[:]
-            )
-        )
-        self.data["qfrc"].append(
-            np.copy(self.environment.physics.named.data.qfrc_actuator[:])
-        )
-        self.data["qpos"].append(np.copy(self.environment.physics.named.data.qpos[:]))
-        self.data["qvel"].append(np.copy(self.environment.physics.named.data.qvel[:]))
-        self.data["qacc"].append(np.copy(self.environment.physics.named.data.qacc[:]))
-        self.data["xpos"].append(np.copy(self.environment.physics.named.data.xpos[:]))
-        for obs in OBSERVATIONS:
-            self.data[obs].append(timestep.observation[obs])
-        self.data["reset"].append(timestep.last())
-
     def closed_loop(
         self,
         sess: tf.Session,
@@ -693,7 +700,7 @@ class NpmpEmbedder:
         """
         for n_step in range(self.video_length):
             print(n_step, flush=True)
-            self.grab_frame()
+            self.observer.grab_frame()
 
             # If the task failed, restart at the new step
             if timestep.last():
@@ -705,22 +712,11 @@ class NpmpEmbedder:
             timestep, feed_dict = self.step_rollout(action_output_np)
 
             # Make observations
-            self.observe_data(action_output_np, timestep)
+            self.observer.observe(action_output_np, timestep)
 
             # Save a checkpoint of the data and video
             if n_step + 1 == self.video_length:
-                self.checkpoint()
-
-    def checkpoint(self):
-        self.checkpoint_eval_video(
-            os.path.join(self.save_dir, "video", str(self.start_step) + ".mp4")
-        )
-        self.save_checkpoint(
-            os.path.join(self.save_dir, "logs", str(self.start_step) + ".mat")
-        )
-
-        # Clear the cam list to keep memory low.
-        self.cam_list = []
+                self.observer.checkpoint(str(self.start_step))
 
     def open_loop(
         self,
@@ -739,7 +735,7 @@ class NpmpEmbedder:
         """
         # count = self.start_step
         for n_step in range(self.video_length):
-            self.grab_frame()
+            self.observer.grab_frame()
 
             print(n_step, flush=True)
             self.environment.task.start_step = n_step
@@ -750,34 +746,11 @@ class NpmpEmbedder:
             timestep, feed_dict = self.step_rollout(action_output_np)
 
             # Make observations
-            self.observe_data(action_output_np, timestep)
+            self.observer.observe(action_output_np, timestep)
 
             # Save a checkpoint of the data and video
             if n_step + 1 == self.video_length:
-                self.checkpoint_eval_video(
-                    os.path.join(self.save_dir, "video", str(self.start_step) + ".mp4")
-                )
-                self.save_checkpoint(
-                    os.path.join(self.save_dir, "logs", str(self.start_step) + ".mat")
-                )
-
-                # Clear the cam list to keep memory low.
-                self.cam_list = []
-
-    def save_checkpoint(self, save_path: Text):
-        """Save data checkoint.
-
-        Args:
-            save_path (Text): Directory in which to save output.
-        """
-        if not os.path.exists(os.path.dirname(save_path)):
-            os.makedirs(os.path.dirname(save_path))
-
-        action_names = self.environment.physics.named.data.act.axes.row.names
-
-        out_dict = {k: np.array(v) for k, v in self.data.items()}
-        out_dict["action_names"] = action_names
-        savemat(save_path, out_dict)
+                self.observer.checkpoint(str(self.start_step))
 
 
 def parse():

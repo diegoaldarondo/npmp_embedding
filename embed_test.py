@@ -8,7 +8,7 @@ import embed
 
 # TODO: figure out how to cleanly setup dm_control environment
 # without camera namspace conflicts.
-# Hack to avoid problems with overlapping environment namespace.
+# Hack to avoid problems with overlapping camera namespace.
 params = dispatch_embed.build_params("test_params.yaml")
 params = params[0]
 NPMP = embed.NpmpEmbedder(
@@ -30,21 +30,31 @@ class EmbedTest(absltest.TestCase):
     def test_setup(self):
         self.assertTrue(isinstance(NPMP, embed.NpmpEmbedder))
 
+    def test_embed(self):
+        NPMP.embed()
+
+
+class ObserverTest(absltest.TestCase):
+    def clear_observations(self):
+        NPMP.observer.cam_list = []
+
+    def setUp(self):
+        self.clear_observations()
+
+    def tearDown(self):
+        self.clear_observations()
+
     def test_grab_frame_no_segmentation(self):
-        NPMP.seg_frames = False
+        NPMP.observer.seg_frames = False
         self.grab_frame()
 
     def test_grab_frame_segmentation(self):
-        NPMP.seg_frames = True
+        NPMP.observer.seg_frames = True
         self.grab_frame()
 
     def grab_frame(self):
-        NPMP.grab_frame()
-        self.assertEqual(NPMP.cam_list[0].shape, tuple(embed.IMAGE_SIZE))
-        NPMP.cam_list = []
-
-    def test_embed(self):
-        NPMP.embed()
+        NPMP.observer.grab_frame()
+        self.assertEqual(NPMP.observer.cam_list[0].shape, tuple(embed.IMAGE_SIZE))
 
 
 if __name__ == "__main__":
