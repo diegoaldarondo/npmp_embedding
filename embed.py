@@ -243,6 +243,7 @@ class Observer:
         self,
         env,
         save_dir,
+        observables,
         seg_frames: bool = False,
         camera_id: Text = "Camera1",
     ):
@@ -256,6 +257,7 @@ class Observer:
         self.setup_data_dicts()
         self.setup_scene_rendering()
         self.env.reset()
+        self.setup_model_observables(observables)
 
     def setup_data_dicts(self):
         """Initialize data dictionary"""
@@ -406,18 +408,6 @@ class Observer:
         out_dict = {k: np.array(v) for k, v in self.data.items()}
         out_dict["action_names"] = action_names
         savemat(save_path, out_dict)
-
-
-class LstmObserver(Observer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setup_model_observables(LSTM_DATA_TYPES)
-
-
-class MlpObserver(Observer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setup_model_observables(MLP_DATA_TYPES)
 
 
 class NullObserver:
@@ -1036,12 +1026,13 @@ def npmp_embed_single_batch():
         torque_actuators=batch_args["torque_actuators"],
     )
     if batch_args["lstm"]:
-        observer = LstmObserver(system.environment, args.save_dir)
+        d_types = LSTM_DATA_TYPES
         feeder = LstmFeeder()
     else:
-        observer = MlpObserver(system.environment, args.save_dir)
+        d_types = MLP_DATA_TYPES
         feeder = MlpFeeder()
 
+    observer = Observer(system.environment, args.save_dir, d_types)
     if args.use_open_loop:
         loop = OpenLoop(
             system.environment, feeder, batch_args["start_step"], args.video_length
@@ -1053,7 +1044,6 @@ def npmp_embed_single_batch():
 
     exp = Experiment(system, observer, loop)
     exp.run()
-
 
 
 def npmp_embed():

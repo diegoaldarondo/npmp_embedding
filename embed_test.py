@@ -17,12 +17,13 @@ def set_up_experiment(params):
         start_step=0,
         torque_actuators=params["torque_actuators"],
     )
-    if not params["lstm"]:
-        observer = embed.MlpObserver(system.environment, params["save_dir"])
-        feeder = embed.MlpFeeder()
-    else:
-        observer = embed.LstmObserver(system.environment, params["save_dir"])
+    if params["lstm"]:
+        d_types = embed.LSTM_DATA_TYPES
         feeder = embed.LstmFeeder()
+    else:
+        d_types = embed.MLP_DATA_TYPES
+        feeder = embed.MlpFeeder()
+    observer = embed.Observer(system.environment, params["save_dir"], d_types)
     loop = embed.ClosedLoop(system.environment, feeder, start_step=0, video_length=5)
     return embed.Experiment(system, observer, loop)
 
