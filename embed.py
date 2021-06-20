@@ -846,136 +846,6 @@ class Experiment:
                 self.observer.checkpoint(str(self.loop.start_step))
 
 
-class NpmpEmbedder:
-    def __init__(
-        self,
-        ref_path: Text,
-        save_dir: Text,
-        model_dir: Text,
-        dataset: Text,
-        stac_params: Text,
-        offset_path: Text = None,
-        arena: composer.Arena = floors.Floor(size=(10.0, 10.0)),
-        ref_steps: Tuple = (1, 2, 3, 4, 5),
-        termination_error_threshold: float = 0.25,
-        min_steps: int = 10,
-        reward_type: Text = "rat_mimic_force",
-        physics_timestep: float = 0.001,
-        body_error_multiplier: float = 10,
-        video_length: int = 2500,
-        end_step: int = 210000,
-        min_action: float = -1.0,
-        max_action: float = 1.0,
-        start_step: int = 0,
-        use_open_loop: bool = False,
-        lstm: bool = False,
-        torque_actuators: bool = False,
-    ):
-        """Initialize the embedder.
-
-        Args:
-            ref_path (Text): Path to reference snippet.
-            save_dir (Text): Path to saving directory.
-            model_dir (Text): Directory of trained model.
-            dataset (Text): Name of dataset registered in dm_control.
-            stac_params (Text): Path to stack params.yaml file.
-            offset_path (Text, optional): Path to offsets .pickle file.
-            arena (composer.Arena, optional): Arena in which to perform roll out.
-            ref_steps (Tuple, optional): Reference steps. e.g (1, 2, 3, 4, 5)
-            termination_error_threshold (float, optional): Error threshold at which to stop roll out.
-            min_steps (int, optional): Minimum number of steps in a roll out.
-            reward_type (Text, optional): Type of reward. Default "rat_mimic_force"
-            physics_timestep (float, optional): Timestep for physics calculations
-            body_error_multiplier (float, optional): Scaling factor for body error.
-            video_length (int, optional): Length of snippet in frames.
-            end_step (int, optional): Last step of video
-            min_action (float, optional): Minimum value of action.
-            max_action (float, optional): Maximum value of action.
-            start_step (int, optional): First step of video
-            seg_frames (bool, optional): If True, segment animal from background in video.
-            camera_id (Text, optional): Name of the camera to use for rendering.
-            use_open_loop (bool, optional): If True, use open-loop during roll out.
-            lstm (bool, optional): Set to true if rolling out an LSTM model.
-            torque (bool, optional): Description
-        """
-
-        self.cam_list = []
-        self.ref_path = ref_path
-        self.model_dir = model_dir
-        self.arena = arena
-        self.stac_params = stac_params
-        self.offset_path = offset_path
-        # arena._ground_geom.pos = [0.0, 0.0, -0.1]
-        self.ref_steps = ref_steps
-        self.termination_error_threshold = termination_error_threshold
-        self.min_steps = min_steps
-        self.dataset = dataset
-        self.reward_type = reward_type
-        self.physics_timestep = physics_timestep
-        self.body_error_multiplier = body_error_multiplier
-        self.video_length = video_length
-        self.end_step = end_step
-        self.min_action = min_action
-        self.max_action = max_action
-        self.start_step = start_step
-        self.use_open_loop = use_open_loop
-        self.lstm = lstm
-        self.torque_actuators = torque_actuators
-
-        # Setup the system
-        self.system = System(
-            ref_path=self.ref_path,
-            dataset=self.dataset,
-            stac_params=self.stac_params,
-            offset_path=self.offset_path,
-            arena=self.arena,
-            ref_steps=self.ref_steps,
-            termination_error_threshold=self.termination_error_threshold,
-            min_steps=self.min_steps,
-            reward_type=self.reward_type,
-            physics_timestep=self.physics_timestep,
-            body_error_multiplier=self.body_error_multiplier,
-            video_length=self.video_length,
-            min_action=self.min_action,
-            max_action=self.max_action,
-            start_step=self.start_step,
-            torque_actuators=self.torque_actuators,
-        )
-
-        # Setup the observer
-        if self.lstm:
-            self.observer = LstmObserver(self.system.environment, save_dir)
-            self.feeder = LstmFeeder()
-        else:
-            self.observer = MlpObserver(self.system.environment, save_dir)
-            self.feeder = MlpFeeder()
-
-        if self.use_open_loop:
-            self.loop = OpenLoop(
-                self.system.environment, self.feeder, self.start_step, self.video_length
-            )
-        else:
-            self.loop = ClosedLoop(
-                self.system.environment, self.feeder, self.start_step, self.video_length
-            )
-
-    def embed(self):
-        """Embed trajectories using comic model."""
-        with tf.Session() as sess:
-            tf.saved_model.loader.load(sess, ["tag"], self.model_dir)
-            graph = tf.get_default_graph()
-            timestep, feed_dict, action_output = self.loop.initialize(sess)
-            try:
-                self.loop.loop(sess, action_output, timestep, feed_dict, self.observer)
-            except IndexError:
-                while len(self.observer.data["reward"]) < self.video_length:
-                    for k in self.observer.data.keys():
-                        self.observer.data[k].append(self.observer.data[k][-1])
-                # while len(cam_list) < self.video_length:
-                #     self.cam_list.append(self.cam_list[-1])
-                self.observer.checkpoint(str(self.start_step))
-
-
 def parse():
     """Parse command line arguments.
 
@@ -1178,10 +1048,11 @@ def npmp_embed_single_batch():
             system.environment, feeder, batch_args["start_step"], args.video_length
         )
 
-    Experiment(system, observer, feeder, loop)
+    exp = Experiment(system, observer, feeder, loop)
+    exp.run()
 
-    npmp = NpmpEmbedder(**args, **batch_args)
-    npmp.embed()
+    # npmp = NpmpEmbedder(**args, **batch_args)
+    # npmp.embed()
 
 
 def npmp_embed():
