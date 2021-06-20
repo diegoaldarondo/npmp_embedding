@@ -629,25 +629,33 @@ class ClosedLoop(Loop):
             timestep (TYPE): Timestep object for the current roll out.
             feed_dict (Dict): Dictionary of inputs
         """
-        for n_step in range(self.video_length):
-            print(n_step, flush=True)
-            observer.grab_frame()
+        try:
+            for n_step in range(self.video_length):
+                print(n_step, flush=True)
+                observer.grab_frame()
 
-            # If the task failed, restart at the new step
-            if timestep.last():
-                self.env.task.start_step = n_step
-                timestep, feed_dict = self.reset()
+                # If the task failed, restart at the new step
+                if timestep.last():
+                    self.env.task.start_step = n_step
+                    timestep, feed_dict = self.reset()
 
-            # Get the action and step in the environment
-            action_output_np = sess.run(action_output, feed_dict)
-            timestep, feed_dict = self.step(action_output_np)
+                # Get the action and step in the environment
+                action_output_np = sess.run(action_output, feed_dict)
+                timestep, feed_dict = self.step(action_output_np)
 
-            # Make observations
-            observer.observe(action_output_np, timestep)
+                # Make observations
+                observer.observe(action_output_np, timestep)
 
-            # Save a checkpoint of the data and video
-            if n_step + 1 == self.video_length:
-                observer.checkpoint(str(self.start_step))
+                # Save a checkpoint of the data and video
+                if n_step + 1 == self.video_length:
+                    observer.checkpoint(str(self.start_step))
+        except IndexError:
+            while len(observer.data["reward"]) < self.video_length:
+                for data_type in observer.data.keys():
+                    observer.data[data_type].append(observer.data[data_type][-1])
+            # while len(cam_list) < self.video_length:
+            #     self.cam_list.append(self.cam_list[-1])
+            observer.checkpoint(str(self.start_step))
 
 
 class OpenLoop(Loop):
@@ -670,24 +678,31 @@ class OpenLoop(Loop):
             timestep (TYPE): Timestep object for the current roll out.
             feed_dict (Dict): Dictionary of inputs
         """
-        # count = self.start_step
-        for n_step in range(self.video_length):
-            observer.grab_frame()
+        try:
+            for n_step in range(self.video_length):
+                observer.grab_frame()
 
-            print(n_step, flush=True)
-            self.env.task.start_step = n_step
-            timestep, feed_dict = self.reset()
+                print(n_step, flush=True)
+                self.env.task.start_step = n_step
+                timestep, feed_dict = self.reset()
 
-            # Get the action and step in the environment
-            action_output_np = sess.run(action_output, feed_dict)
-            timestep, feed_dict = self.step(action_output_np)
+                # Get the action and step in the environment
+                action_output_np = sess.run(action_output, feed_dict)
+                timestep, feed_dict = self.step(action_output_np)
 
-            # Make observations
-            observer.observe(action_output_np, timestep)
+                # Make observations
+                observer.observe(action_output_np, timestep)
 
-            # Save a checkpoint of the data and video
-            if n_step + 1 == self.video_length:
-                observer.checkpoint(str(self.start_step))
+                # Save a checkpoint of the data and video
+                if n_step + 1 == self.video_length:
+                    observer.checkpoint(str(self.start_step))
+        except IndexError:
+            while len(observer.data["reward"]) < self.video_length:
+                for data_type in observer.data.keys():
+                    observer.data[data_type].append(observer.data[data_type][-1])
+            # while len(cam_list) < self.video_length:
+            #     self.cam_list.append(self.cam_list[-1])
+            observer.checkpoint(str(self.start_step))
 
 
 class System:
@@ -833,17 +848,7 @@ class Experiment:
             self.system.load_model(sess)
             graph = tf.get_default_graph()
             timestep, feed_dict, action_output = self.loop.initialize(sess)
-            try:
-                self.loop.loop(sess, action_output, timestep, feed_dict, self.observer)
-            except IndexError:
-                while len(self.observer.data["reward"]) < self.loop.video_length:
-                    for data_type in self.observer.data.keys():
-                        self.observer.data[data_type].append(
-                            self.observer.data[data_type][-1]
-                        )
-                # while len(cam_list) < self.video_length:
-                #     self.cam_list.append(self.cam_list[-1])
-                self.observer.checkpoint(str(self.loop.start_step))
+            self.loop.loop(sess, action_output, timestep, feed_dict, self.observer)
 
 
 def parse():
