@@ -834,12 +834,10 @@ class Experiment:
         self,
         system: System,
         observer: Observer,
-        feeder: Feeder,
         loop: Loop,
     ):
         self.system = system
         self.observer = observer
-        self.feeder = feeder
         self.loop = loop
 
     def run(self):
@@ -1053,11 +1051,9 @@ def npmp_embed_single_batch():
             system.environment, feeder, batch_args["start_step"], args.video_length
         )
 
-    exp = Experiment(system, observer, feeder, loop)
+    exp = Experiment(system, observer, loop)
     exp.run()
 
-    # npmp = NpmpEmbedder(**args, **batch_args)
-    # npmp.embed()
 
 
 def npmp_embed():

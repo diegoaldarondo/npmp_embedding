@@ -24,7 +24,7 @@ def set_up_experiment(params):
         observer = embed.LstmObserver(system.environment, params["save_dir"])
         feeder = embed.LstmFeeder()
     loop = embed.ClosedLoop(system.environment, feeder, start_step=0, video_length=5)
-    return embed.Experiment(system, observer, feeder, loop)
+    return embed.Experiment(system, observer, loop)
 
 
 # TODO: figure out how to cleanly setup dm_control environment
@@ -79,7 +79,7 @@ class LoopTest(absltest.TestCase):
     def loop(self, loop_fn, experiment):
         experiment.loop = loop_fn(
             experiment.system.environment,
-            experiment.feeder,
+            experiment.loop.feeder,
             experiment.loop.start_step,
             experiment.loop.video_length,
         )
