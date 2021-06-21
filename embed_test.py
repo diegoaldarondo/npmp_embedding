@@ -4,11 +4,12 @@ from __future__ import print_function
 
 from absl.testing import absltest
 import dispatch_embed
-import embed
+import experiment
+import observer
 
 
 def set_up_experiment(params):
-    system = embed.System(
+    system = experiment.System(
         ref_path=params["ref_path"],
         model_dir=params["model_dir"],
         dataset=params["dataset"],
@@ -18,25 +19,27 @@ def set_up_experiment(params):
         torque_actuators=params["torque_actuators"],
     )
     if params["lstm"]:
-        observer = embed.LstmObserver(system.environment, params["save_dir"])
-        feeder = embed.LstmFeeder()
+        obs = observer.LstmObserver(system.environment, params["save_dir"])
+        feeder = experiment.LstmFeeder()
     else:
-        observer = embed.MlpObserver(system.environment, params["save_dir"])
-        feeder = embed.MlpFeeder()
-    loop = embed.ClosedLoop(system.environment, feeder, start_step=0, video_length=5)
-    return embed.Experiment(system, observer, loop)
+        obs = observer.MlpObserver(system.environment, params["save_dir"])
+        feeder = experiment.MlpFeeder()
+    loop = experiment.ClosedLoop(
+        system.environment, feeder, start_step=0, video_length=5
+    )
+    return experiment.Experiment(system, obs, loop)
 
 
 def change_exp_model(exp):
-    is_mlp = isinstance(exp.observer, embed.MlpObserver)
+    is_mlp = isinstance(exp.observer, experiment.MlpObserver)
     if is_mlp:
         exp.system.model_dir = params[1]["model_dir"]
-        exp.observer.setup_model_ovservables(embed.LSTM_DATA_TYPES)
-        exp.loop.feeder = embed.LstmFeeder()
+        exp.observer.setup_model_ovservables(experiment.LSTM_NETWORK_FEATURES)
+        exp.loop.feeder = experiment.LstmFeeder()
     else:
         exp.system.model_dir = params[0]["model_dir"]
-        exp.observer.setup_model_ovservables(embed.MLP_DATA_TYPES)
-        exp.loop.feeder = embed.MlpFeeder()
+        exp.observer.setup_model_ovservables(experiment.MLP_NETWORK_FEATURES)
+        exp.loop.feeder = experiment.MlpFeeder()
     return exp
 
 
@@ -54,7 +57,7 @@ EXP = set_up_experiment(params[1])
 
 class ExperimentTest(absltest.TestCase):
     def test_setup(self):
-        self.assertTrue(isinstance(EXP, embed.Experiment))
+        self.assertTrue(isinstance(EXP, experiment.Experiment))
 
     def test_run_mlp(self):
         EXP.run()
@@ -76,33 +79,33 @@ class ObserverTest(absltest.TestCase):
     def test_grab_frame_segmentation_mlp(self):
         self.grab_frame(EXP, True)
 
-    def grab_frame(self, experiment, seg_frames):
-        experiment.observer.seg_frames = seg_frames
-        experiment.observer.grab_frame()
-        self.assertEqual(experiment.observer.cam_list[0].shape, tuple(embed.IMAGE_SIZE))
+    def grab_frame(self, exp, seg_frames):
+        exp.observer.seg_frames = seg_frames
+        exp.observer.grab_frame()
+        self.assertEqual(exp.observer.cam_list[0].shape, tuple(experiment.IMAGE_SIZE))
 
 
 class LoopTest(absltest.TestCase):
-    def loop(self, loop_fn, experiment):
-        experiment.loop = loop_fn(
-            experiment.system.environment,
-            experiment.loop.feeder,
-            experiment.loop.start_step,
-            experiment.loop.video_length,
+    def loop(self, loop_fn, exp):
+        exp.loop = loop_fn(
+            exp.system.environment,
+            exp.loop.feeder,
+            exp.loop.start_step,
+            exp.loop.video_length,
         )
-        experiment.run()
+        exp.run()
 
     def test_open(self):
-        self.loop(embed.OpenLoop, EXP)
+        self.loop(experiment.OpenLoop, EXP)
 
     def test_closed(self):
-        self.loop(embed.ClosedLoop, EXP)
+        self.loop(experiment.ClosedLoop, EXP)
 
     # def test_open_lstm(self):
-    #     self.loop(embed.OpenLoop, lstm_exp)
+    #     self.loop(experiment.OpenLoop, lstm_exp)
 
     # def test_closed_lstm(self):
-    #     self.loop(embed.ClosedLoop, lstm_exp)
+    #     self.loop(experiment.ClosedLoop, lstm_exp)
 
 
 if __name__ == "__main__":
