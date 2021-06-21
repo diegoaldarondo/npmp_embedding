@@ -18,14 +18,26 @@ def set_up_experiment(params):
         torque_actuators=params["torque_actuators"],
     )
     if params["lstm"]:
-        d_types = embed.LSTM_DATA_TYPES
+        observer = embed.LstmObserver(system.environment, params["save_dir"])
         feeder = embed.LstmFeeder()
     else:
-        d_types = embed.MLP_DATA_TYPES
+        observer = embed.MlpObserver(system.environment, params["save_dir"])
         feeder = embed.MlpFeeder()
-    observer = embed.Observer(system.environment, params["save_dir"], d_types)
     loop = embed.ClosedLoop(system.environment, feeder, start_step=0, video_length=5)
     return embed.Experiment(system, observer, loop)
+
+
+def change_exp_model(exp):
+    is_mlp = isinstance(exp.observer, embed.MlpObserver)
+    if is_mlp:
+        exp.system.model_dir = params[1]["model_dir"]
+        exp.observer.setup_model_ovservables(embed.LSTM_DATA_TYPES)
+        exp.loop.feeder = embed.LstmFeeder()
+    else:
+        exp.system.model_dir = params[0]["model_dir"]
+        exp.observer.setup_model_ovservables(embed.MLP_DATA_TYPES)
+        exp.loop.feeder = embed.MlpFeeder()
+    return exp
 
 
 # TODO: figure out how to cleanly setup dm_control environment
@@ -34,23 +46,23 @@ def set_up_experiment(params):
 params = dispatch_embed.build_params("test_params.yaml")
 
 # Test MLP
-exp = set_up_experiment(params[0])
+# EXP = set_up_experiment(params[0])
 
 # Test LSTM
-# exp = set_up_experiment(params[1])
+EXP = set_up_experiment(params[1])
 
 
 class ExperimentTest(absltest.TestCase):
     def test_setup(self):
-        self.assertTrue(isinstance(exp, embed.Experiment))
+        self.assertTrue(isinstance(EXP, embed.Experiment))
 
-    def test_run(self):
-        exp.run()
+    def test_run_mlp(self):
+        EXP.run()
 
 
 class ObserverTest(absltest.TestCase):
     def clear_observations(self):
-        exp.observer.cam_list = []
+        EXP.observer.cam_list = []
 
     def setUp(self):
         self.clear_observations()
@@ -59,20 +71,14 @@ class ObserverTest(absltest.TestCase):
         self.clear_observations()
 
     def test_grab_frame_no_segmentation_mlp(self):
-        self.grab_frame(exp, False)
+        self.grab_frame(EXP, False)
 
     def test_grab_frame_segmentation_mlp(self):
-        self.grab_frame(exp, True)
-
-    # def test_grab_frame_no_segmentation_lstm(self):
-    #     self.grab_frame(lstm_exp, False)
-
-    # def test_grab_frame_segmentation_lstm(self):
-    #     self.grab_frame(lstm_exp, True)
+        self.grab_frame(EXP, True)
 
     def grab_frame(self, experiment, seg_frames):
         experiment.observer.seg_frames = seg_frames
-        exp.observer.grab_frame()
+        experiment.observer.grab_frame()
         self.assertEqual(experiment.observer.cam_list[0].shape, tuple(embed.IMAGE_SIZE))
 
 
@@ -86,11 +92,11 @@ class LoopTest(absltest.TestCase):
         )
         experiment.run()
 
-    def test_open_mlp(self):
-        self.loop(embed.OpenLoop, exp)
+    def test_open(self):
+        self.loop(embed.OpenLoop, EXP)
 
-    def test_open_mlp(self):
-        self.loop(embed.ClosedLoop, exp)
+    def test_closed(self):
+        self.loop(embed.ClosedLoop, EXP)
 
     # def test_open_lstm(self):
     #     self.loop(embed.OpenLoop, lstm_exp)
