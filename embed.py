@@ -422,52 +422,37 @@ class NullObserver:
         pass
 
 
-class Feeder(abc.ABC):
-    def __init__(self):
-        self.full_inputs = None
+class Feeder():
+    def __init__(
+        self,
+        inputs: Dict,
+        actions: Dict,
+        states: List,
+        observations: List = OBSERVATIONS,
+    ):
+        self.inputs = inputs
+        self.actions = actions
+        self.states = states
+        self.observations = observations
 
     def feed(self, timestep, action_output_np: np.ndarray = None):
         feed_dict = {}
-        for obs in OBSERVATIONS:
-            feed_dict[self.full_inputs[obs]] = timestep.observation[obs]
+        for obs in self.observations:
+            feed_dict[self.graph_inputs[obs]] = timestep.observation[obs]
         for state in self.states:
             if action_output_np is None:
-                feed_dict[self.full_inputs[state]] = np.zeros(
-                    self.full_inputs[state].shape
+                feed_dict[self.graph_inputs[state]] = np.zeros(
+                    self.graph_inputs[state].shape
                 )
             else:
-                feed_dict[self.full_inputs[state]] = action_output_np[state].flatten()
-        feed_dict[self.full_inputs["step_type"]] = timestep.step_type
-        feed_dict[self.full_inputs["reward"]] = timestep.reward
-        feed_dict[self.full_inputs["discount"]] = timestep.discount
+                feed_dict[self.graph_inputs[state]] = action_output_np[state].flatten()
+        feed_dict[self.graph_inputs["step_type"]] = timestep.step_type
+        feed_dict[self.graph_inputs["reward"]] = timestep.reward
+        feed_dict[self.graph_inputs["discount"]] = timestep.discount
         return feed_dict
 
-    @abc.abstractmethod
-    def get_inputs(self) -> Dict:
-        """Setup full_inputs for the model.
-
-        Returns:
-            Dict: full input dict
-        """
-        pass
-
-    @abc.abstractmethod
-    def get_outputs(self) -> Dict:
-        """Setup full_inputs for the model.
-
-        Returns:
-            Dict: Action output dict
-        """
-        pass
-
-
-class LstmFeeder(Feeder):
-    def __init__(self, *args, **kwargs):
-        self.states = LSTM_STATES
-        super().__init__(*args, **kwargs)
-
     def get_inputs(self, sess: tf.Session) -> Dict:
-        """Setup full_inputs for the model.
+        """Setup graph_inputs for the model.
 
         Args:
             sess (tf.Session): Current tf session.
@@ -475,10 +460,10 @@ class LstmFeeder(Feeder):
         Returns:
             Dict: full input dict
         """
-        self.full_inputs = {
-            k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_FULL_INPUTS.items()
+        self.graph_inputs = {
+            k: sess.graph.get_tensor_by_name(v) for k, v in self.inputs.items()
         }
-        return self.full_inputs
+        return self.graph_inputs
 
     def get_outputs(self, sess: tf.Session) -> Dict:
         """Setup action output for the model.
@@ -490,50 +475,8 @@ class LstmFeeder(Feeder):
             Dict: Action output dict
         """
         action_output = {
-            k: sess.graph.get_tensor_by_name(v) for k, v in LSTM_ACTIONS.items()
+            k: sess.graph.get_tensor_by_name(v) for k, v in self.actions.items()
         }
-        return action_output
-
-
-class MlpFeeder(Feeder):
-    def __init__(self, *args, **kwargs):
-        self.states = MLP_STATES
-        super().__init__(*args, **kwargs)
-
-    def get_inputs(self, sess: tf.Session) -> Dict:
-        """Setup full_inputs for the model.
-
-        Args:
-            sess (tf.Session): Current tf session.
-
-        Returns:
-            Dict: full input dict
-        """
-        self.full_inputs = {
-            k: sess.graph.get_tensor_by_name(v) for k, v in MLP_FULL_INPUTS.items()
-        }
-        return self.full_inputs
-
-    def get_outputs(self, sess: tf.Session) -> Dict:
-        """Setup action output for the model.
-
-        Args:
-            sess (tf.Session): Current tf session.
-
-        Returns:
-            Dict: Action output dict
-        """
-        action_output = {
-            k: sess.graph.get_tensor_by_name(v) for k, v in MLP_ACTIONS.items()
-        }
-        action_output["jacobian_latent_mean"] = jacobian(
-            sess.graph.get_tensor_by_name(
-                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0"
-            ),
-            sess.graph.get_tensor_by_name(
-                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0"
-            ),
-        )
         return action_output
 
 
@@ -1027,10 +970,10 @@ def npmp_embed_single_batch():
     )
     if batch_args["lstm"]:
         d_types = LSTM_DATA_TYPES
-        feeder = LstmFeeder()
+        feeder = Feeder(LSTM_FULL_INPUTS, LSTM_ACTIONS, LSTM_STATES)
     else:
         d_types = MLP_DATA_TYPES
-        feeder = MlpFeeder()
+        feeder = Feeder(MLP_FULL_INPUTS, MLP_ACTIONS, MLP_STATES)
 
     observer = Observer(system.environment, args.save_dir, d_types)
     if args.use_open_loop:
