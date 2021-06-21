@@ -41,6 +41,7 @@ from tensorflow.python.ops.parallel_for.gradients import jacobian
 from typing import Dict, List, Text, Tuple
 import abc
 import observer
+import feeder
 
 mjlib = mjbindings.mjlib
 
@@ -239,79 +240,11 @@ def walker_fn(torque_actuators=False, **kwargs) -> rodent.Rat:
     return rodent.Rat(torque_actuators=torque_actuators, foot_mods=True, **kwargs)
 
 
-class Feeder:
-    def __init__(
-        self,
-        inputs: Dict,
-        actions: Dict,
-        states: List,
-        observations: List = OBSERVATIONS,
-    ):
-        self.inputs = inputs
-        self.actions = actions
-        self.states = states
-        self.observations = observations
-
-    def feed(self, timestep, action_output_np: np.ndarray = None):
-        feed_dict = {}
-        for obs in self.observations:
-            feed_dict[self.graph_inputs[obs]] = timestep.observation[obs]
-        for state in self.states:
-            if action_output_np is None:
-                feed_dict[self.graph_inputs[state]] = np.zeros(
-                    self.graph_inputs[state].shape
-                )
-            else:
-                feed_dict[self.graph_inputs[state]] = action_output_np[state].flatten()
-        feed_dict[self.graph_inputs["step_type"]] = timestep.step_type
-        feed_dict[self.graph_inputs["reward"]] = timestep.reward
-        feed_dict[self.graph_inputs["discount"]] = timestep.discount
-        return feed_dict
-
-    def get_inputs(self, sess: tf.Session) -> Dict:
-        """Setup graph_inputs for the model.
-
-        Args:
-            sess (tf.Session): Current tf session.
-
-        Returns:
-            Dict: full input dict
-        """
-        self.graph_inputs = {
-            k: sess.graph.get_tensor_by_name(v) for k, v in self.inputs.items()
-        }
-        return self.graph_inputs
-
-    def get_outputs(self, sess: tf.Session) -> Dict:
-        """Setup action output for the model.
-
-        Args:
-            sess (tf.Session): Current tf session.
-
-        Returns:
-            Dict: Action output dict
-        """
-        action_output = {
-            k: sess.graph.get_tensor_by_name(v) for k, v in self.actions.items()
-        }
-        return action_output
-
-
-class MlpFeeder(Feeder):
-    def __init__(self, **kwargs):
-        super().__init__(MLP_INPUTS, MLP_ACTIONS, MLP_STATES, **kwargs)
-
-
-class LstmFeeder(Feeder):
-    def __init__(self, **kwargs):
-        super().__init__(LSTM_INPUTS, LSTM_ACTIONS, LSTM_STATES, **kwargs)
-
-
 class Loop(abc.ABC):
     def __init__(
         self,
         env,
-        feeder: Feeder,
+        feeder: feeder.Feeder,
         start_step: int,
         video_length: int,
         closed: bool = True,
@@ -749,10 +682,10 @@ def npmp_embed_single_batch():
     )
     if batch_args["lstm"]:
         observer = observer.LstmObserver(system.environment, args.save_dir)
-        feeder = Feeder(LSTM_INPUTS, LSTM_ACTIONS, LSTM_STATES)
+        feeder = feeder.Feeder(LSTM_INPUTS, LSTM_ACTIONS, LSTM_STATES)
     else:
         observer = observer.MlpObserver(system.environment, args.save_dir)
-        feeder = Feeder(MLP_INPUTS, MLP_ACTIONS, MLP_STATES)
+        feeder = feeder.Feeder(MLP_INPUTS, MLP_ACTIONS, MLP_STATES)
 
     if args.use_open_loop:
         loop = OpenLoop(

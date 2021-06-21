@@ -6,6 +6,7 @@ from absl.testing import absltest
 import dispatch_embed
 import experiment
 import observer
+from feeder import LstmFeeder, MlpFeeder
 
 
 def set_up_experiment(params):
@@ -20,10 +21,10 @@ def set_up_experiment(params):
     )
     if params["lstm"]:
         obs = observer.LstmObserver(system.environment, params["save_dir"])
-        feeder = experiment.LstmFeeder()
+        feeder = LstmFeeder()
     else:
         obs = observer.MlpObserver(system.environment, params["save_dir"])
-        feeder = experiment.MlpFeeder()
+        feeder = MlpFeeder()
     loop = experiment.ClosedLoop(
         system.environment, feeder, start_step=0, video_length=5
     )
@@ -35,11 +36,11 @@ def change_exp_model(exp):
     if is_mlp:
         exp.system.model_dir = params[1]["model_dir"]
         exp.observer.setup_model_ovservables(experiment.LSTM_NETWORK_FEATURES)
-        exp.loop.feeder = experiment.LstmFeeder()
+        exp.loop.feeder = LstmFeeder()
     else:
         exp.system.model_dir = params[0]["model_dir"]
         exp.observer.setup_model_ovservables(experiment.MLP_NETWORK_FEATURES)
-        exp.loop.feeder = experiment.MlpFeeder()
+        exp.loop.feeder = MlpFeeder()
     return exp
 
 
