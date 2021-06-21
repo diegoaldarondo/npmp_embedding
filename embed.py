@@ -1,17 +1,17 @@
 """Embed out of sample data using npmp architecture.
 
 Attributes:
-    DATA_TYPES (List): Data saved for all models
+    MODEL_FEATURES (List): Data saved for all models
     FPS (int): Frame rate of the video
     IMAGE_SIZE (List): Dimensions of images in video
     LSTM_ACTIONS (Dict): Lstm actions and node names
-    LSTM_DATA_TYPES (Dict): Lstm data to save
-    LSTM_FULL_INPUTS (Dict): Lstm inputs and node names
+    LSTM_NETWORK_FEATURES (Dict): Lstm data to save
+    LSTM_INPUTS (Dict): Lstm inputs and node names
     LSTM_STATES (List): Lstm state features
     mjlib (module): Shorthand for mjbindings.mjlib
     MLP_ACTIONS (Dict): Mlp actions and node names
-    MLP_DATA_TYPES (Dict): Mlp data to save
-    MLP_FULL_INPUTS (Dict): MLP inputs and node names
+    MLP_NETWORK_FEATURES (Dict): Mlp data to save
+    MLP_INPUTS (Dict): MLP inputs and node names
     MLP_STATES (List): MLP state features
     OBSERVATIONS (List): Model observations
 """
@@ -80,7 +80,7 @@ LSTM_STATES = [
     "lstm_policy_cell_level_2",
 ]
 
-MLP_FULL_INPUTS = {
+MLP_INPUTS = {
     "step_type": "step_type_2:0",
     "reward": "reward_2:0",
     "discount": "discount_1:0",
@@ -111,7 +111,7 @@ MLP_FULL_INPUTS = {
     "target_latent": "state_16:0",
 }
 
-LSTM_FULL_INPUTS = {
+LSTM_INPUTS = {
     "step_type": "step_type_2:0",
     "reward": "reward_2:0",
     "discount": "discount_1:0",
@@ -173,7 +173,7 @@ LSTM_ACTIONS = {
     "target_latent": "agent_0/step_1/reset_core_1_1/MultiLevelSamplerWithARPrior/add_2:0",
 }
 
-DATA_TYPES = [
+MODEL_FEATURES = [
     "reward",
     "walker_body_sites",
     "qfrc",
@@ -183,7 +183,7 @@ DATA_TYPES = [
     "xpos",
 ]
 
-MLP_DATA_TYPES = [
+MLP_NETWORK_FEATURES = [
     "level_1_scale",
     "level_1_loc",
     "latent_sample",
@@ -191,7 +191,7 @@ MLP_DATA_TYPES = [
     # "jacobian_latent_mean",
 ]
 
-LSTM_DATA_TYPES = [
+LSTM_NETWORK_FEATURES = [
     "level_1_scale",
     "level_1_loc",
     "latent_sample",
@@ -239,14 +239,31 @@ def walker_fn(torque_actuators=False, **kwargs) -> rodent.Rat:
 
 
 class Observer:
+    """Class to ovserve and record data."""
+
     def __init__(
         self,
-        env,
-        save_dir,
-        observables,
+        env: composer.Environment,
+        save_dir: Text,
+        network_features: List,
+        network_observations: List = OBSERVATIONS,
+        model_features: List = MODEL_FEATURES,
         seg_frames: bool = False,
         camera_id: Text = "Camera1",
     ):
+        """Intialize observer
+
+        Args:
+            env (composer.Environment): System environment
+            save_dir (Text): Save directory
+            network_features (List): List of network features to record
+            network_observations (List): List of observations the network makes that you wish to record
+            model_features (List): List of model (body) features you wish to record
+            observables (List): List of data types to observe
+            seg_frames (bool, optional): If true, segment background in images.
+                Defaults to False.
+            camera_id (Text, optional): Camera name. Defaults to "Camera1".
+        """
         self.env = env
         self.save_dir = save_dir
         self.data = {}
@@ -254,23 +271,30 @@ class Observer:
         self.seg_frames = seg_frames
         self.camera_id = camera_id
         self.scene_option = None
+        self.network_features = network_features
+        self.network_observations = network_observations
+        self.model_features = model_features
         self.setup_data_dicts()
         self.setup_scene_rendering()
         self.env.reset()
-        self.setup_model_observables(observables)
+        self.setup_network_features()
 
     def setup_data_dicts(self):
         """Initialize data dictionary"""
-        for data_type in DATA_TYPES:
+        for data_type in self.model_features:
             self.data[data_type] = []
-        for obs in OBSERVATIONS:
+        for obs in self.network_observations:
             self.data[obs] = []
         self.data["reset"] = []
 
-    def setup_model_observables(self, observables):
-        self.data_types = observables
-        for data_type in self.data_types:
-            self.data[data_type] = []
+    def setup_network_features(self):
+        """Set up data dictionary with network features
+
+        Args:
+            network_features (List): List of data types to observe
+        """
+        for feature in self.network_features:
+            self.data[feature] = []
 
     def setup_scene_rendering(self):
         """Set the scene to segment the frames or not."""
@@ -321,8 +345,8 @@ class Observer:
             action_output_np (Dict): Description
             timestep (TYPE): Description
         """
-        for data_type in self.data_types:
-            self.data[data_type].append(action_output_np[data_type])
+        for feature in self.network_features:
+            self.data[feature].append(action_output_np[feature])
         self.data["reward"].append(timestep.reward)
         self.data["walker_body_sites"].append(
             np.copy(self.env.physics.bind(self.env.task._walker.body_sites).xpos[:])
@@ -410,6 +434,32 @@ class Observer:
         savemat(save_path, out_dict)
 
 
+class MlpObserver(Observer):
+    """Mlp network observer"""
+
+    def __init__(self, environment: composer.Environment, save_dir: Text):
+        """Initialize Mlp network observer
+
+        Args:
+            environment (composer.Environment): System environment
+            save_dir (Text): Save directory
+        """
+        super().__init__(environment, save_dir, MLP_NETWORK_FEATURES)
+
+
+class LstmObserver(Observer):
+    """Lstm network observer"""
+
+    def __init__(self, environment: composer.Environment, save_dir: Text):
+        """Initialize Lstm network observer
+
+        Args:
+            environment (composer.Environment): System environment
+            save_dir (Text): Save directory
+        """
+        super().__init__(environment, save_dir, LSTM_NETWORK_FEATURES)
+
+
 class NullObserver:
     def __init__(self):
         method_list = [
@@ -422,7 +472,7 @@ class NullObserver:
         pass
 
 
-class Feeder():
+class Feeder:
     def __init__(
         self,
         inputs: Dict,
@@ -480,15 +530,30 @@ class Feeder():
         return action_output
 
 
+class MlpFeeder(Feeder):
+    def __init__(self, **kwargs):
+        super().__init__(MLP_INPUTS, MLP_ACTIONS, MLP_STATES, **kwargs)
+
+
+class LstmFeeder(Feeder):
+    def __init__(self, **kwargs):
+        super().__init__(LSTM_INPUTS, LSTM_ACTIONS, LSTM_STATES, **kwargs)
+
+
 class Loop(abc.ABC):
-    def __init__(self, env, feeder: Feeder, start_step: int, video_length: int):
+    def __init__(
+        self,
+        env,
+        feeder: Feeder,
+        start_step: int,
+        video_length: int,
+        closed: bool = True,
+    ):
         self.env = env
         self.feeder = feeder
         self.start_step = start_step
         self.video_length = video_length
-        self.full_inputs = None
-        self.states = None
-        self.lstm = False
+        self.closed = closed
 
     def reset(self):
         """Restart an environment from the start_step
@@ -516,36 +581,6 @@ class Loop(abc.ABC):
         feed_dict = self.feeder.feed(timestep, action_output_np)
         return timestep, feed_dict
 
-    @abc.abstractmethod
-    def loop(
-        self,
-        sess: tf.Session,
-        action_output: Dict,
-        timestep,
-        feed_dict: Dict,
-        observer: Observer = NullObserver(),
-    ):
-        pass
-
-    def initialize(self, sess: tf.Session) -> Tuple:
-        """Initialize the loop.
-
-        Args:
-            sess (tf.Session): Current tf session
-
-        Returns:
-            Tuple: Timestep, feed_dict, action_output
-        """
-        _ = self.feeder.get_inputs(sess)
-        action_output = self.feeder.get_outputs(sess)
-        timestep, feed_dict = self.reset()
-        return timestep, feed_dict, action_output
-
-
-class ClosedLoop(Loop):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def loop(
         self,
         sess: tf.Session,
@@ -567,8 +602,8 @@ class ClosedLoop(Loop):
                 print(n_step, flush=True)
                 observer.grab_frame()
 
-                # If the task failed, restart at the new step
-                if timestep.last():
+                # Restart at the new step tf the task failed or in open loop
+                if (self.closed and timestep.last()) or not self.closed:
                     self.env.task.start_step = n_step
                     timestep, feed_dict = self.reset()
 
@@ -590,52 +625,29 @@ class ClosedLoop(Loop):
             #     self.cam_list.append(self.cam_list[-1])
             observer.checkpoint(str(self.start_step))
 
+    def initialize(self, sess: tf.Session) -> Tuple:
+        """Initialize the loop.
+
+        Args:
+            sess (tf.Session): Current tf session
+
+        Returns:
+            Tuple: Timestep, feed_dict, action_output
+        """
+        _ = self.feeder.get_inputs(sess)
+        action_output = self.feeder.get_outputs(sess)
+        timestep, feed_dict = self.reset()
+        return timestep, feed_dict, action_output
+
+
+class ClosedLoop(Loop):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, closed=True)
+
 
 class OpenLoop(Loop):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def loop(
-        self,
-        sess: tf.Session,
-        action_output: Dict,
-        timestep,
-        feed_dict: Dict,
-        observer: Observer = NullObserver(),
-    ):
-        """Roll out the model in open loop with the environment.
-
-        Args:
-            sess (tf.Session): Tensorflow session
-            action_output (Dict): Dictionary of logged outputs
-            timestep (TYPE): Timestep object for the current roll out.
-            feed_dict (Dict): Dictionary of inputs
-        """
-        try:
-            for n_step in range(self.video_length):
-                observer.grab_frame()
-
-                print(n_step, flush=True)
-                self.env.task.start_step = n_step
-                timestep, feed_dict = self.reset()
-
-                # Get the action and step in the environment
-                action_output_np = sess.run(action_output, feed_dict)
-                timestep, feed_dict = self.step(action_output_np)
-
-                # Make observations
-                observer.observe(action_output_np, timestep)
-
-                # Save a checkpoint of the data and video
-                if n_step + 1 == self.video_length:
-                    observer.checkpoint(str(self.start_step))
-        except IndexError:
-            while len(observer.data["reward"]) < self.video_length:
-                for data_type in observer.data.keys():
-                    observer.data[data_type].append(observer.data[data_type][-1])
-            # while len(cam_list) < self.video_length:
-            #     self.cam_list.append(self.cam_list[-1])
-            observer.checkpoint(str(self.start_step))
+        super().__init__(*args, **kwargs, closed=False)
 
 
 class System:
@@ -969,13 +981,12 @@ def npmp_embed_single_batch():
         torque_actuators=batch_args["torque_actuators"],
     )
     if batch_args["lstm"]:
-        d_types = LSTM_DATA_TYPES
-        feeder = Feeder(LSTM_FULL_INPUTS, LSTM_ACTIONS, LSTM_STATES)
+        observer = LstmObserver(system.environment, args.save_dir)
+        feeder = Feeder(LSTM_INPUTS, LSTM_ACTIONS, LSTM_STATES)
     else:
-        d_types = MLP_DATA_TYPES
-        feeder = Feeder(MLP_FULL_INPUTS, MLP_ACTIONS, MLP_STATES)
+        observer = MlpObserver(system.environment, args.save_dir)
+        feeder = Feeder(MLP_INPUTS, MLP_ACTIONS, MLP_STATES)
 
-    observer = Observer(system.environment, args.save_dir, d_types)
     if args.use_open_loop:
         loop = OpenLoop(
             system.environment, feeder, batch_args["start_step"], args.video_length
