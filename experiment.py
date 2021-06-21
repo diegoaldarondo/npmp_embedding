@@ -1,245 +1,14 @@
-"""Embed out of sample data using npmp architecture.
-
-Attributes:
-    MODEL_FEATURES (List): Data saved for all models
-    FPS (int): Frame rate of the video
-    IMAGE_SIZE (List): Dimensions of images in video
-    LSTM_ACTIONS (Dict): Lstm actions and node names
-    LSTM_NETWORK_FEATURES (Dict): Lstm data to save
-    LSTM_INPUTS (Dict): Lstm inputs and node names
-    LSTM_STATES (List): Lstm state features
-    mjlib (module): Shorthand for mjbindings.mjlib
-    MLP_ACTIONS (Dict): Mlp actions and node names
-    MLP_NETWORK_FEATURES (Dict): Mlp data to save
-    MLP_INPUTS (Dict): MLP inputs and node names
-    MLP_STATES (List): MLP state features
-    OBSERVATIONS (List): Model observations
-"""
-import dm_control
-from dm_control.locomotion.mocap import cmu_mocap_data
-from dm_control.locomotion.walkers import rodent
-from dm_control.locomotion.arenas import floors
-from dm_control.locomotion.tasks.reference_pose import tracking
-from dm_control import composer
-from dm_control.mujoco.wrapper import mjbindings
-from dm_control.utils import transformations
-from dm_control.suite.wrappers import action_scale
-from dm_control.mujoco import wrapper
-from dm_control.mujoco.wrapper.mjbindings import enums
-from scipy.io import loadmat
+"""Run an experiment using comic architecture."""
 import pickle
-import numpy as np
-import imageio
-from scipy.io import savemat
 import argparse
 import ast
 import os
 import pickle
-import yaml
 import tensorflow.compat.v1 as tf
-from tensorflow.python.ops.parallel_for.gradients import jacobian
-from typing import Dict, List, Text, Tuple
-import abc
 from observer import Observer, MlpObserver, LstmObserver
 from feeder import MlpFeeder, LstmFeeder
 from system import System
 from loop import Loop, OpenLoop, ClosedLoop
-
-mjlib = mjbindings.mjlib
-
-OBSERVATIONS = [
-    "walker/actuator_activation",
-    "walker/appendages_pos",
-    "walker/joints_pos",
-    "walker/joints_vel",
-    "walker/sensors_accelerometer",
-    "walker/sensors_gyro",
-    "walker/sensors_touch",
-    "walker/sensors_torque",
-    "walker/sensors_velocimeter",
-    "walker/tendons_pos",
-    "walker/tendons_vel",
-    "walker/world_zaxis",
-    "walker/reference_rel_bodies_pos_local",
-    "walker/reference_rel_bodies_quats",
-]
-
-MLP_STATES = [
-    "latent",
-    "target_latent",
-    "dummy_core_state",
-    "dummy_target_core_state",
-    "dummy_policy_state_level_1",
-    "dummy_policy_state_level_2",
-    "dummy_target_policy_state_level_1",
-    "dummy_target_policy_state_level_2",
-]
-
-LSTM_STATES = [
-    "latent",
-    "target_latent",
-    "lstm_policy_hidden_level_1",
-    "lstm_policy_cell_level_1",
-    "lstm_policy_hidden_level_2",
-    "lstm_policy_cell_level_2",
-]
-
-MLP_INPUTS = {
-    "step_type": "step_type_2:0",
-    "reward": "reward_2:0",
-    "discount": "discount_1:0",
-    "walker/actuator_activation": "walker/actuator_activation_1:0",
-    "walker/appendages_pos": "walker/appendages_pos_1:0",
-    "walker/body_height": "walker/body_height_1:0",
-    "walker/end_effectors_pos": "walker/end_effectors_pos_1:0",
-    "walker/joints_pos": "walker/joints_pos_1:0",
-    "walker/joints_vel": "walker/joints_vel_1:0",
-    "walker/sensors_accelerometer": "walker/sensors_accelerometer_1:0",
-    "walker/sensors_force": "walker/sensors_force_1:0",
-    "walker/sensors_gyro": "walker/sensors_gyro_1:0",
-    "walker/sensors_torque": "walker/sensors_torque_1:0",
-    "walker/sensors_touch": "walker/sensors_touch_1:0",
-    "walker/sensors_velocimeter": "walker/sensors_velocimeter_1:0",
-    "walker/tendons_pos": "walker/tendons_pos_1:0",
-    "walker/tendons_vel": "walker/tendons_vel_1:0",
-    "walker/world_zaxis": "walker/world_zaxis_1:0",
-    "walker/reference_rel_bodies_pos_local": "walker/reference_rel_bodies_pos_local_1:0",
-    "walker/reference_rel_bodies_quats": "walker/reference_rel_bodies_quats_1:0",
-    "dummy_core_state": "state_9:0",
-    "dummy_target_core_state": "state_10:0",
-    "dummy_policy_state_level_1": "state_11:0",
-    "dummy_policy_state_level_2": "state_12:0",
-    "dummy_target_policy_state_level_1": "state_14:0",
-    "dummy_target_policy_state_level_2": "state_15:0",
-    "latent": "state_13:0",
-    "target_latent": "state_16:0",
-}
-
-LSTM_INPUTS = {
-    "step_type": "step_type_2:0",
-    "reward": "reward_2:0",
-    "discount": "discount_1:0",
-    "walker/actuator_activation": "walker/actuator_activation_1:0",
-    "walker/appendages_pos": "walker/appendages_pos_1:0",
-    "walker/body_height": "walker/body_height_1:0",
-    "walker/end_effectors_pos": "walker/end_effectors_pos_1:0",
-    "walker/joints_pos": "walker/joints_pos_1:0",
-    "walker/joints_vel": "walker/joints_vel_1:0",
-    "walker/sensors_accelerometer": "walker/sensors_accelerometer_1:0",
-    "walker/sensors_force": "walker/sensors_force_1:0",
-    "walker/sensors_gyro": "walker/sensors_gyro_1:0",
-    "walker/sensors_torque": "walker/sensors_torque_1:0",
-    "walker/sensors_touch": "walker/sensors_touch_1:0",
-    "walker/sensors_velocimeter": "walker/sensors_velocimeter_1:0",
-    "walker/tendons_pos": "walker/tendons_pos_1:0",
-    "walker/tendons_vel": "walker/tendons_vel_1:0",
-    "walker/world_zaxis": "walker/world_zaxis_1:0",
-    "walker/reference_rel_bodies_pos_local": "walker/reference_rel_bodies_pos_local_1:0",
-    "walker/reference_rel_bodies_quats": "walker/reference_rel_bodies_quats_1:0",
-    "lstm_policy_hidden_level_1": "state_22:0",
-    "lstm_policy_cell_level_1": "state_23:0",
-    "lstm_policy_hidden_level_2": "state_24:0",
-    "lstm_policy_cell_level_2": "state_25:0",
-    "latent": "state_26:0",
-    "target_latent": "state_32:0",
-}
-
-MLP_ACTIONS = {
-    "action": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag/sample/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_chain_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_scale_matvec_linear_operator/forward/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift/forward/add:0",
-    "dummy_core_state": "agent_0/step_1/reset_core/Select:0",
-    "dummy_target_core_state": "agent_0/step_1/reset_core_2/Select:0",
-    "dummy_policy_state_level_1": "agent_0/step_1/reset_core_1/Select:0",
-    "dummy_policy_state_level_2": "agent_0/step_1/reset_core_1/Select_1:0",
-    "dummy_target_policy_state_level_1": "agent_0/step_1/reset_core_1_1/Select:0",
-    "dummy_target_policy_state_level_2": "agent_0/step_1/reset_core_1_1/Select_1:0",
-    "latent": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
-    "latent_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
-    "target_latent": "agent_0/step_1/reset_core_1_1/MultiLevelSamplerWithARPrior/add_2:0",
-    "prior_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/mul_1:0",
-    "level_1_scale": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add:0",
-    "level_1_loc": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
-    "latent_sample": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
-    "action_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0",
-}
-
-LSTM_ACTIONS = {
-    "action": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag/sample/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_chain_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_scale_matvec_linear_operator/forward/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift/forward/add:0",
-    "action_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0",
-    "lstm_policy_hidden_level_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm/mul_2:0",
-    "lstm_policy_cell_level_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm/add_2:0",
-    "lstm_policy_hidden_level_2": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm_1/mul_2:0",
-    "lstm_policy_cell_level_2": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm_1/add_2:0",
-    "latent": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
-    "latent_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
-    "latent_sample": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
-    "level_1_scale": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add:0",
-    "level_1_loc": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
-    "target_latent": "agent_0/step_1/reset_core_1_1/MultiLevelSamplerWithARPrior/add_2:0",
-}
-
-MODEL_FEATURES = [
-    "reward",
-    "walker_body_sites",
-    "qfrc",
-    "qpos",
-    "qvel",
-    "qacc",
-    "xpos",
-]
-
-MLP_NETWORK_FEATURES = [
-    "level_1_scale",
-    "level_1_loc",
-    "latent_sample",
-    "action_mean",
-    # "jacobian_latent_mean",
-]
-
-LSTM_NETWORK_FEATURES = [
-    "level_1_scale",
-    "level_1_loc",
-    "latent_sample",
-    "lstm_policy_hidden_level_1",
-    "lstm_policy_cell_level_1",
-    "lstm_policy_hidden_level_2",
-    "lstm_policy_cell_level_2",
-    "action_mean",
-]
-
-
-FPS = 50
-IMAGE_SIZE = [480, 640, 3]
-# IMAGE_SIZE = [368, 368, 3]
-
-
-def load_params(param_path: Text) -> Dict:
-    """Load stac parameters for the animal.
-
-
-    Args:
-        param_path (Text): Path to .yaml file specifying animal parameters.
-
-    Returns:
-        Dict: Dictionary of stac parameters.
-    """
-    with open(param_path, "r") as infile:
-        try:
-            params = yaml.safe_load(infile)
-        except yaml.YAMLError as exc:
-            print(exc)
-    return params
-
-
-def walker_fn(torque_actuators=False, **kwargs) -> rodent.Rat:
-    """Specify the rodent walker.
-
-    Args:
-        **kwargs: kwargs for rodent.Rat
-
-    Returns:
-        rodent.Rat: Rat walker.
-    """
-    return rodent.Rat(torque_actuators=torque_actuators, foot_mods=True, **kwargs)
 
 
 class Experiment:
@@ -249,12 +18,19 @@ class Experiment:
         observer: Observer,
         loop: Loop,
     ):
+        """Initialize experiment
+
+        Args:
+            system (System): Experimental System
+            observer (Observer): Experimental Observer
+            loop (Loop): Experimental Loop
+        """
         self.system = system
         self.observer = observer
         self.loop = loop
 
     def run(self):
-        """Run the environment using comic model."""
+        """Run the environment through the loop using system model."""
         with tf.Session() as sess:
             self.system.load_model(sess)
             graph = tf.get_default_graph()

@@ -83,7 +83,7 @@ class ObserverTest(absltest.TestCase):
     def grab_frame(self, exp, seg_frames):
         exp.observer.seg_frames = seg_frames
         exp.observer.grab_frame()
-        self.assertEqual(exp.observer.cam_list[0].shape, tuple(experiment.IMAGE_SIZE))
+        self.assertEqual(exp.observer.cam_list[0].shape, tuple(observer.IMAGE_SIZE))
 
 
 class LoopTest(absltest.TestCase):
