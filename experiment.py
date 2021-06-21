@@ -40,8 +40,10 @@ import tensorflow.compat.v1 as tf
 from tensorflow.python.ops.parallel_for.gradients import jacobian
 from typing import Dict, List, Text, Tuple
 import abc
-import observer
-import feeder
+from observer import Observer, MlpObserver, LstmObserver
+from feeder import MlpFeeder, LstmFeeder
+from system import System
+from loop import Loop, OpenLoop, ClosedLoop
 
 mjlib = mjbindings.mjlib
 
@@ -240,245 +242,11 @@ def walker_fn(torque_actuators=False, **kwargs) -> rodent.Rat:
     return rodent.Rat(torque_actuators=torque_actuators, foot_mods=True, **kwargs)
 
 
-class Loop(abc.ABC):
-    def __init__(
-        self,
-        env,
-        feeder: feeder.Feeder,
-        start_step: int,
-        video_length: int,
-        closed: bool = True,
-    ):
-        self.env = env
-        self.feeder = feeder
-        self.start_step = start_step
-        self.video_length = video_length
-        self.closed = closed
-
-    def reset(self):
-        """Restart an environment from the start_step
-
-        Returns:
-            (TYPE): Current timestep
-            Dict: Input dictionary with updated values
-        """
-        timestep = self.env.reset()
-        feed_dict = self.feeder.feed(timestep, action_output_np=None)
-        return timestep, feed_dict
-
-    def step(self, action_output_np: Dict):
-        """Perform a single step within an environment.
-
-        Args:
-            action_output_np (Dict): Description
-
-        Returns:
-            (TYPE): Current timestep
-            Dict: Input dictionary with updated values
-        """
-        # timestep = self.environment.step(action_output_np["action"])
-        timestep = self.env.step(action_output_np["action_mean"])
-        feed_dict = self.feeder.feed(timestep, action_output_np)
-        return timestep, feed_dict
-
-    def loop(
-        self,
-        sess: tf.Session,
-        action_output: Dict,
-        timestep,
-        feed_dict: Dict,
-        observer: observer.Observer = observer.NullObserver(),
-    ):
-        """Roll-out the model in closed loop with the environment.
-
-        Args:
-            sess (tf.Session): Tensorflow session
-            action_output (Dict): Dictionary of logged outputs
-            timestep (TYPE): Timestep object for the current roll out.
-            feed_dict (Dict): Dictionary of inputs
-        """
-        try:
-            for n_step in range(self.video_length):
-                print(n_step, flush=True)
-                observer.grab_frame()
-
-                # Restart at the new step tf the task failed or in open loop
-                if (self.closed and timestep.last()) or not self.closed:
-                    self.env.task.start_step = n_step
-                    timestep, feed_dict = self.reset()
-
-                # Get the action and step in the environment
-                action_output_np = sess.run(action_output, feed_dict)
-                timestep, feed_dict = self.step(action_output_np)
-
-                # Make observations
-                observer.observe(action_output_np, timestep)
-
-                # Save a checkpoint of the data and video
-                if n_step + 1 == self.video_length:
-                    observer.checkpoint(str(self.start_step))
-        except IndexError:
-            while len(observer.data["reward"]) < self.video_length:
-                for data_type in observer.data.keys():
-                    observer.data[data_type].append(observer.data[data_type][-1])
-            # while len(cam_list) < self.video_length:
-            #     self.cam_list.append(self.cam_list[-1])
-            observer.checkpoint(str(self.start_step))
-
-    def initialize(self, sess: tf.Session) -> Tuple:
-        """Initialize the loop.
-
-        Args:
-            sess (tf.Session): Current tf session
-
-        Returns:
-            Tuple: Timestep, feed_dict, action_output
-        """
-        _ = self.feeder.get_inputs(sess)
-        action_output = self.feeder.get_outputs(sess)
-        timestep, feed_dict = self.reset()
-        return timestep, feed_dict, action_output
-
-
-class ClosedLoop(Loop):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, closed=True)
-
-
-class OpenLoop(Loop):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, closed=False)
-
-
-class System:
-    """A system includes an environment with tasks and walkers."""
-
-    def __init__(
-        self,
-        ref_path: Text,
-        model_dir: Text,
-        dataset: Text,
-        stac_params: Text,
-        offset_path: Text = None,
-        arena: composer.Arena = floors.Floor(size=(10.0, 10.0)),
-        ref_steps: Tuple = (1, 2, 3, 4, 5),
-        termination_error_threshold: float = 0.25,
-        min_steps: int = 10,
-        reward_type: Text = "rat_mimic_force",
-        physics_timestep: float = 0.001,
-        body_error_multiplier: float = 10,
-        video_length: int = 2500,
-        min_action: float = -1.0,
-        max_action: float = 1.0,
-        start_step: int = 0,
-        torque_actuators: bool = False,
-    ):
-        """Utility class to roll out model for new snippets.
-
-        Attributes:
-            arena (composer.Arena, optional): Arena in which to perform roll out.
-            body_error_multiplier (float): Scaling factor for body error.
-            cam_list (list): List of rendered video frames over time.
-            camera_id (Text): Name of the camera to use for rendering.
-            data (Dict): Observed data
-            dataset (Text): Name of dataset registered in dm_control.
-            end_step (int): Last step of video
-            environment (composer.Environment): Environment for roll out.
-            full_inputs (Dict): All inputs to model.
-            model_dir (Text): Directory of trained model.
-            lstm (bool): Set to true if rolling out an LSTM model.
-            max_action (float): Maximum value of action.
-            min_action (float): Minimum value of action.
-            min_steps (int): Minimum number of steps in a roll out.
-            offset_path (Text): Path to offsets .pickle file.
-            physics_timestep (float): Timestep for physics calculations
-            ref_path (Text): Path to reference snippet.
-            ref_steps (Tuple): Reference steps. e.g (1, 2, 3, 4, 5)
-            reward_type (Text): Type of reward. Default "rat_mimic_force"
-            save_dir (Text): Path to saving directory.
-            scene_option (wrapper.MjvOption): MjvOptions for scene rendering.
-            seg_frames (bool): If True, segment animal from background in video.
-            stac_params (Text): Path to stack params.yaml file.
-            start_step (int): First step of video
-            termination_error_threshold (float, optional): Error threshold at which to stop roll out.
-            use_open_loop (bool): If True, use open-loop during roll out.
-            video_length (int): Length of snippet in frames.
-        """
-
-        self.ref_path = ref_path
-        self.model_dir = model_dir
-        self.arena = arena
-        self.stac_params = stac_params
-        self.offset_path = offset_path
-        self.ref_steps = ref_steps
-        self.termination_error_threshold = termination_error_threshold
-        self.min_steps = min_steps
-        self.dataset = dataset
-        self.reward_type = reward_type
-        self.physics_timestep = physics_timestep
-        self.body_error_multiplier = body_error_multiplier
-        self.video_length = video_length
-        self.min_action = min_action
-        self.max_action = max_action
-        self.start_step = start_step
-        self.torque_actuators = torque_actuators
-
-        # Set up the stac parameters to compute the inferred keypoints
-        # in CoMic rollouts.
-        params = load_params(self.stac_params)
-        self.setup_environment(params)
-        self.setup_offsets(params)
-
-    def setup_environment(self, params: Dict):
-        """Setup task and environment
-
-        Args:
-            params (Dict): Stac parameters dict
-        """
-        task = tracking.SingleClipTracking(
-            clip_id="clip_%d" % (self.start_step),
-            clip_length=self.video_length + np.max(self.ref_steps) + 1,
-            walker=lambda **kwargs: walker_fn(
-                params=params, torque_actuators=self.torque_actuators, **kwargs
-            ),
-            arena=self.arena,
-            ref_path=self.ref_path,
-            ref_steps=self.ref_steps,
-            termination_error_threshold=self.termination_error_threshold,
-            dataset=self.dataset,
-            min_steps=self.min_steps,
-            reward_type=self.reward_type,
-            physics_timestep=self.physics_timestep,
-            body_error_multiplier=self.body_error_multiplier,
-        )
-        self.environment = action_scale.Wrapper(
-            composer.Environment(task), self.min_action, self.max_action
-        )
-
-    def setup_offsets(self, params: Dict):
-        """Set the keypoint offsets.
-
-        Args:
-            params (Dict): Stac parameters dict.
-        """
-        if self.offset_path is not None and self.stac_params is not None:
-            params["offset_path"] = self.offset_path
-        with open(params["offset_path"], "rb") as f:
-            in_dict = pickle.load(f)
-        sites = self.environment.task._walker.body_sites
-        self.environment.physics.bind(sites).pos[:] = in_dict["offsets"]
-        for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
-            sites[n_site].pos = p
-
-    def load_model(self, sess: tf.Session):
-        tf.saved_model.loader.load(sess, ["tag"], self.model_dir)
-
-
 class Experiment:
     def __init__(
         self,
         system: System,
-        observer: observer.Observer,
+        observer: Observer,
         loop: Loop,
     ):
         self.system = system
@@ -681,11 +449,11 @@ def npmp_embed_single_batch():
         torque_actuators=batch_args["torque_actuators"],
     )
     if batch_args["lstm"]:
-        observer = observer.LstmObserver(system.environment, args.save_dir)
-        feeder = feeder.Feeder(LSTM_INPUTS, LSTM_ACTIONS, LSTM_STATES)
+        observer = LstmObserver(system.environment, args.save_dir)
+        feeder = LstmFeeder()
     else:
-        observer = observer.MlpObserver(system.environment, args.save_dir)
-        feeder = feeder.Feeder(MLP_INPUTS, MLP_ACTIONS, MLP_STATES)
+        observer = MlpObserver(system.environment, args.save_dir)
+        feeder = MlpFeeder()
 
     if args.use_open_loop:
         loop = OpenLoop(
@@ -700,8 +468,8 @@ def npmp_embed_single_batch():
     exp.run()
 
 
-def npmp_embed():
-    """Embed entire clip."""
-    args = parse()
-    npmp = NpmpEmbedder(**args.__dict__)
-    npmp.embed()
+# def npmp_embed():
+#     """Embed entire clip."""
+#     args = parse()
+#     npmp = NpmpEmbedder(**args.__dict__)
+#     npmp.embed()

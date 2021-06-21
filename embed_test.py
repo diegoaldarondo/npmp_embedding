@@ -7,10 +7,12 @@ import dispatch_embed
 import experiment
 import observer
 from feeder import LstmFeeder, MlpFeeder
+from loop import OpenLoop, ClosedLoop
+from system import System
 
 
 def set_up_experiment(params):
-    system = experiment.System(
+    system = System(
         ref_path=params["ref_path"],
         model_dir=params["model_dir"],
         dataset=params["dataset"],
@@ -25,9 +27,7 @@ def set_up_experiment(params):
     else:
         obs = observer.MlpObserver(system.environment, params["save_dir"])
         feeder = MlpFeeder()
-    loop = experiment.ClosedLoop(
-        system.environment, feeder, start_step=0, video_length=5
-    )
+    loop = ClosedLoop(system.environment, feeder, start_step=0, video_length=5)
     return experiment.Experiment(system, obs, loop)
 
 
@@ -97,10 +97,10 @@ class LoopTest(absltest.TestCase):
         exp.run()
 
     def test_open(self):
-        self.loop(experiment.OpenLoop, EXP)
+        self.loop(OpenLoop, EXP)
 
     def test_closed(self):
-        self.loop(experiment.ClosedLoop, EXP)
+        self.loop(ClosedLoop, EXP)
 
     # def test_open_lstm(self):
     #     self.loop(experiment.OpenLoop, lstm_exp)
