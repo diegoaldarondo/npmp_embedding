@@ -10,6 +10,8 @@ from feeder import MlpFeeder, LstmFeeder
 from system import System
 from loop import Loop, OpenLoop, ClosedLoop
 
+tf.compat.v1.disable_eager_execution()
+
 
 class Experiment:
     def __init__(
@@ -233,19 +235,18 @@ def npmp_embed_single_batch():
 
     if args.use_open_loop:
         loop = OpenLoop(
-            system.environment, feeder, batch_args["start_step"], args.video_length
+            system.environment,
+            feeder,
+            batch_args["start_step"],
+            batch_args["video_length"],
         )
     else:
         loop = ClosedLoop(
-            system.environment, feeder, batch_args["start_step"], args.video_length
+            system.environment,
+            feeder,
+            batch_args["start_step"],
+            batch_args["video_length"],
         )
 
     exp = Experiment(system, observer, loop)
     exp.run()
-
-
-# def npmp_embed():
-#     """Embed entire clip."""
-#     args = parse()
-#     npmp = NpmpEmbedder(**args.__dict__)
-#     npmp.embed()
