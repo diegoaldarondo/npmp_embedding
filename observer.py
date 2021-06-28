@@ -57,6 +57,7 @@ LSTM_NETWORK_FEATURES = [
 FPS = 50
 IMAGE_SIZE = [480, 640, 3]
 
+
 class Observer:
     """Class to ovserve and record data."""
 
@@ -126,7 +127,8 @@ class Observer:
         #     quat="0.0010 -0.0202 -0.7422 -0.6699",
         # )
 
-        # To get the quaternion, you need to convert the matlab camera rotation matrrix:
+        # To get the camera quaternion, you need to convert the matlab camera rotation matrix:
+        # In Matlab:
         # eul = rotm2eul(r,'ZYX')
         # eul(3) = eul(3) + pi
         # quat = rotm2quat(eul,'ZYX')
@@ -165,8 +167,15 @@ class Observer:
             timestep (TYPE): Description
         """
         for feature in self.network_features:
-            self.data[feature].append(action_output_np[feature])
-        self.data["reward"].append(timestep.reward)
+            self.data[feature].append(action_output_np[feature].copy())
+
+        # Record the reward
+        if timestep.reward is None:
+            self.data["reward"].append(0.0)
+        else:
+            self.data["reward"].append(timestep.reward)
+
+        # Record model features.
         self.data["walker_body_sites"].append(
             np.copy(self.env.physics.bind(self.env.task._walker.body_sites).xpos[:])
         )
@@ -175,7 +184,7 @@ class Observer:
         self.data["qvel"].append(np.copy(self.env.physics.named.data.qvel[:]))
         self.data["qacc"].append(np.copy(self.env.physics.named.data.qacc[:]))
         self.data["xpos"].append(np.copy(self.env.physics.named.data.xpos[:]))
-        for obs in OBSERVATIONS:
+        for obs in self.network_observations:
             self.data[obs].append(timestep.observation[obs])
         self.data["reset"].append(timestep.last())
 
