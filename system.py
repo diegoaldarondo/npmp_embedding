@@ -63,39 +63,32 @@ class System:
         max_action: float = 1.0,
         start_step: int = 0,
         torque_actuators: bool = False,
+        latent_noise: bool = False,
     ):
-        """Utility class to roll out model for new snippets.
+        """Initialize system for rat imitation experiments.
 
-        Attributes:
-            arena (composer.Arena, optional): Arena in which to perform roll out.
-            body_error_multiplier (float): Scaling factor for body error.
-            cam_list (list): List of rendered video frames over time.
-            camera_id (Text): Name of the camera to use for rendering.
-            data (Dict): Observed data
-            dataset (Text): Name of dataset registered in dm_control.
-            end_step (int): Last step of video
-            environment (composer.Environment): Environment for roll out.
-            full_inputs (Dict): All inputs to model.
-            model_dir (Text): Directory of trained model.
-            lstm (bool): Set to true if rolling out an LSTM model.
-            max_action (float): Maximum value of action.
-            min_action (float): Minimum value of action.
-            min_steps (int): Minimum number of steps in a roll out.
-            offset_path (Text): Path to offsets .pickle file.
-            physics_timestep (float): Timestep for physics calculations
+        Args:
             ref_path (Text): Path to reference snippet.
-            ref_steps (Tuple): Reference steps. e.g (1, 2, 3, 4, 5)
-            reward_type (Text): Type of reward. Default "rat_mimic_force"
-            save_dir (Text): Path to saving directory.
-            scene_option (wrapper.MjvOption): MjvOptions for scene rendering.
-            seg_frames (bool): If True, segment animal from background in video.
+            model_dir (Text): Directory of trained model.
+            dataset (Text): Name of dataset registered in dm_control.
             stac_params (Text): Path to stack params.yaml file.
-            start_step (int): First step of video
-            termination_error_threshold (float, optional): Error threshold at which to stop roll out.
-            use_open_loop (bool): If True, use open-loop during roll out.
-            video_length (int): Length of snippet in frames.
+            offset_path (Text, optional): Path to offsets .pickle file. Defaults to None.
+            arena (composer.Arena, optional):  Arena in which to perform roll out. Defaults to floors.Floor(size=(10.0, 10.0)).
+            ref_steps (Tuple, optional): Reference steps. Defaults to (1, 2, 3, 4, 5).
+            termination_error_threshold (float, optional): Error threshold at which to stop roll out.. Defaults to 0.25.
+            min_steps (int, optional): Minimum number of steps in a roll out. Defaults to 10.
+            reward_type (Text, optional): Type of reward. Defaults to "rat_mimic_force".
+            physics_timestep (float, optional): Timestep for physics calculations. Defaults to 0.001.
+            body_error_multiplier (float, optional): Scaling factor for body error. Defaults to 10.
+            video_length (int, optional): Length of snippet in frames. Defaults to 2500.
+            min_action (float, optional): Minimum value of action. Defaults to -1.0.
+            max_action (float, optional): Maximum value of action. Defaults to 1.0.
+            start_step (int, optional): First step of video. Defaults to 0.
+            torque_actuators (bool, optional): If True, use torque as model output.
+                Defaults to False.
+            latent_noise (bool, optional): If True, sample from the latent distribution.
+                Defaults to False.
         """
-
         self.ref_path = ref_path
         self.model_dir = model_dir
         self.arena = arena
@@ -113,6 +106,7 @@ class System:
         self.max_action = max_action
         self.start_step = start_step
         self.torque_actuators = torque_actuators
+        self.latent_noise = latent_noise
 
         # Set up the stac parameters to compute the inferred keypoints
         # in CoMic rollouts.
@@ -161,5 +155,21 @@ class System:
         for n_site, p in enumerate(self.environment.physics.bind(sites).pos):
             sites[n_site].pos = p
 
-    def load_model(self, sess: tf.Session):
-        tf.saved_model.loader.load(sess, ["tag"], self.model_dir)
+    def load_model(self, sess: tf.Session, **kwargs):
+        """Load comic model
+
+        Args:
+            sess (tf.Session): Tensorflow Session
+        """
+        if self.latent_noise:
+            zeros_tensor_name = "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/zeros_like_1:0"
+            gaussian_tensor = tf.random.normal((1, 60))
+            tf.saved_model.loader.load(
+                sess,
+                ["tag"],
+                self.model_dir,
+                input_map={zeros_tensor_name: gaussian_tensor},
+                **kwargs
+            )
+        else:
+            tf.saved_model.loader.load(sess, ["tag"], self.model_dir, **kwargs)
