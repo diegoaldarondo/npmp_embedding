@@ -166,15 +166,6 @@ class ClosedLoopMultiSample(ClosedLoop):
                     # Make observations
                     observer.observe(action_output_np, timestep)
 
-                # print(
-                #     observer.data["level_1_loc"][10] - observer.data["level_1_loc"][11]
-                # )
-                # # print(observer.data["qpos"][10] - observer.data["qpos"][11])
-                # print(
-                #     observer.data["latent_sample"][10]
-                #     - observer.data["latent_sample"][11]
-                # )
-
                 timestep, feed_dict = self.step(action_output_np)
 
                 # Save a checkpoint of the data and video
@@ -182,3 +173,16 @@ class ClosedLoopMultiSample(ClosedLoop):
                     observer.checkpoint(str(self.start_step))
         except IndexError:
             self.end_loop(observer)
+
+    def end_loop(self, observer: observer.Observer):
+        """Handle the end of the recording.
+
+        Args:
+            observer (observer.Observer): Experiment observer
+        """
+        while len(observer.data["reward"]) < self.video_length * self.n_samples:
+            for data_type in observer.data.keys():
+                observer.data[data_type].append(observer.data[data_type][-1])
+            # while len(cam_list) < self.video_length:
+            #     self.cam_list.append(self.cam_list[-1])
+            observer.checkpoint(str(self.start_step))
