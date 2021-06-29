@@ -13,7 +13,8 @@ class DispatchEmbedTest(absltest.TestCase):
         params = dispatch_embed.build_params("test_params.yaml")
         for batch_params in params:
             time.sleep(1)
-            dispatch_embed.dispatch(batch_params)
+            dispatcher = dispatch_embed.ParallelNpmpDispatcher(batch_params)
+            dispatcher.dispatch()
 
 
 if __name__ == "__main__":
