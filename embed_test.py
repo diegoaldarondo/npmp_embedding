@@ -6,8 +6,9 @@ from absl.testing import absltest
 import dispatch_embed
 import experiment
 import observer
+import unittest
 from feeder import LstmFeeder, MlpFeeder
-from loop import OpenLoop, ClosedLoop
+from loop import OpenLoop, ClosedLoop, ClosedLoopMultiSample
 from system import System
 
 
@@ -20,6 +21,7 @@ def set_up_experiment(params):
         offset_path=params["offset_path"],
         start_step=0,
         torque_actuators=params["torque_actuators"],
+        latent_noise=True,
     )
     if params["lstm"]:
         obs = observer.LstmObserver(system.environment, params["save_dir"])
@@ -27,19 +29,19 @@ def set_up_experiment(params):
     else:
         obs = observer.MlpObserver(system.environment, params["save_dir"])
         feeder = MlpFeeder()
-    loop = ClosedLoop(system.environment, feeder, start_step=0, video_length=5)
+    loop = ClosedLoop(system.environment, feeder, start_step=0, video_length=10)
     return experiment.Experiment(system, obs, loop)
 
 
 def change_exp_model(exp):
-    is_mlp = isinstance(exp.observer, experiment.MlpObserver)
+    is_mlp = isinstance(exp.observer, observer.MlpObserver)
     if is_mlp:
         exp.system.model_dir = params[1]["model_dir"]
-        exp.observer.setup_model_ovservables(experiment.LSTM_NETWORK_FEATURES)
+        exp.observer.setup_model_ovservables(observer.LSTM_NETWORK_FEATURES)
         exp.loop.feeder = LstmFeeder()
     else:
         exp.system.model_dir = params[0]["model_dir"]
-        exp.observer.setup_model_ovservables(experiment.MLP_NETWORK_FEATURES)
+        exp.observer.setup_model_ovservables(observer.MLP_NETWORK_FEATURES)
         exp.loop.feeder = MlpFeeder()
     return exp
 
@@ -50,10 +52,10 @@ def change_exp_model(exp):
 params = dispatch_embed.build_params("test_params.yaml")
 
 # Test MLP
-# EXP = set_up_experiment(params[0])
+EXP = set_up_experiment(params[0])
 
 # Test LSTM
-EXP = set_up_experiment(params[1])
+# EXP = set_up_experiment(params[1])
 
 
 class ExperimentTest(absltest.TestCase):
@@ -101,6 +103,9 @@ class LoopTest(absltest.TestCase):
 
     def test_closed(self):
         self.loop(ClosedLoop, EXP)
+
+    def test_closed_multi_sample(self):
+        self.loop(ClosedLoopMultiSample, EXP)
 
     # def test_open_lstm(self):
     #     self.loop(experiment.OpenLoop, lstm_exp)
