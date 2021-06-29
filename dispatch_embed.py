@@ -26,54 +26,34 @@ class ParallelNpmpDispatcher:
         video_length (int, optional): Length of chunks to parallelize over.
     """
 
-    def __init__(
-        self,
-        ref_path: Text,
-        save_dir: Text,
-        dataset: Text,
-        model_dir: Text,
-        stac_params: Text,
-        offset_path: Text,
-        video_length: int = 2500,
-        lstm: bool = False,
-        torque_actuators: bool = False,
-        batch_file="_batch_args.p",
-        test: bool = False,
-    ):
+    def __init__(self, params: Dict):
         """Initialize ParallelNpmpDispatcher.
 
         Args:
-            ref_path (Text): Path to .hdf5 reference trajectories.
-            save_dir (Text): Folder in which to save videos and .mat files.
-            dataset (Text): Name of dataset registered in dm_control.
-            model_dir (Text): Path to rodent tracking model.
-            stac_params (Text): Path to stac params (.yaml).
-            offset_path (Text): Path to stac output with offset (.p).
-            video_length (int, optional): Length of chunks to parallelize over.
-            test (bool): If True, only submit a small test job
+            params (Dict): Parameters dictionary
         """
-        self.ref_path = ref_path
-        self.save_dir = save_dir
-        self.dataset = dataset
-        self.model_dir = model_dir
-        self.video_length = video_length
-        self.stac_params = stac_params
-        self.offset_path = offset_path
-        self.batch_file = batch_file
+        # self.ref_path = ref_path
+        # self.save_dir = save_dir
+        # self.dataset = dataset
+        # self.model_dir = model_dir
+        # self.video_length = video_length
+        # self.stac_params = stac_params
+        # self.offset_path = offset_path
+        # self.batch_file = batch_file
+        self.params = params
         self.clip_end = self.get_clip_end()
-        self.test = test
+        # self.test = test
 
-        self.start_steps = np.arange(0, self.clip_end, self.video_length)
-        self.end_steps = self.start_steps + self.video_length
+        self.start_steps = np.arange(0, self.clip_end, self.params["video_length"])
+        self.end_steps = self.start_steps + self.params["video_length"]
         self.end_steps[-1] = self.clip_end
         batch_args = []
         for start, end in zip(self.start_steps, self.end_steps):
-            args = {
-                "start_step": start,
-                "end_step": end,
-                "lstm": lstm,
-                "torque_actuators": torque_actuators,
-            }
+            args = self.params.copy()
+            args["start_step"] = start
+            args["end_step"] = end
+            args["lstm"] = self.params["lstm"]
+            args["torque_actuators"] = self.params["torque_actuators"]
             batch_args.append(args)
         self.save_batch_args(batch_args)
 
@@ -83,38 +63,26 @@ class ParallelNpmpDispatcher:
         Returns:
             int: Number of steps in the dataset.
         """
-        with h5py.File(self.ref_path, "r") as file:
+        with h5py.File(self.params["ref_path"], "r") as file:
             num_steps = 0
             for clip in file.keys():
                 # num_steps += file[clip].attrs["num_steps"]
-                num_steps += self.video_length
+                num_steps += self.params["video_length"]
         return num_steps
 
     def dispatch(self):
         """Submit the job to the cluster."""
-        if not self.test:
-            cmd1 = '"sbatch --wait --array=0-%d multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"' % (
+        if not self.params["test"]:
+            cmd1 = '"sbatch --wait --array=0-%d multi_job_embed.sh %s"' % (
                 len(self.start_steps) - 1,
-                self.ref_path,
-                self.save_dir,
-                self.dataset,
-                self.model_dir,
-                self.stac_params,
-                self.offset_path,
-                self.batch_file,
+                self.params["batch_file"],
             )
         else:
-            cmd1 = '"sbatch --wait --array=0 multi_job_embed.sh %s %s %s %s --stac-params=%s --offset-path=%s --batch-file=%s"' % (
-                self.ref_path,
-                self.save_dir,
-                self.dataset,
-                self.model_dir,
-                self.stac_params,
-                self.offset_path,
-                self.batch_file,
+            cmd1 = '"sbatch --wait --array=0 multi_job_embed.sh %s"' % (
+                self.params["batch_file"],
             )
 
-        out_folder = os.path.join(self.save_dir, "logs")
+        out_folder = os.path.join(self.params["save_dir"], "logs")
         cmd2 = '"merge-embed %s"' % (out_folder)
         cmd = "sbatch embed.sh " + cmd1 + " " + cmd2
         print(cmd)
@@ -124,10 +92,9 @@ class ParallelNpmpDispatcher:
         """Save the batch arguments.
 
         Args:
-                batch_args (Dict): Arguments for each of the jobs in the batch array.
+            batch_args (Dict): Arguments for each of the jobs in the batch array.
         """
-        with open(self.batch_file, "wb") as f:
-            # print(batch_args)
+        with open(self.params["batch_file"], "wb") as f:
             pickle.dump(batch_args, f)
 
 
@@ -195,22 +162,6 @@ def dispatch_npmp_embed():
     dispatcher.dispatch()
 
 
-def dispatch(params: Dict):
-    dispatcher = ParallelNpmpDispatcher(
-        params["ref_path"],
-        params["save_dir"],
-        params["dataset"],
-        params["model_dir"],
-        params["stac_params"],
-        params["offset_path"],
-        lstm=params["lstm"],
-        torque_actuators=params["torque_actuators"],
-        batch_file=params["batch_file"],
-        test=params["test"],
-    )
-    dispatcher.dispatch()
-
-
 def load_params(param_path: Text) -> Dict:
     """Load dispatch parameters.
 
@@ -234,35 +185,38 @@ def build_params(param_path: Text) -> List[Dict]:
     Returns:
         List[Dict]: Parameters for each batch job.
     """
-    in_params = load_params(param_path)
-    out_params = []
+    params = load_params(param_path)
+    total_params = []
 
     # Cycle through project folders and models.
-    for project_folder in in_params["project_folders"]:
+    for project_folder in params["project_folders"]:
         for n_model, (model, lstm, torque) in enumerate(
             zip(
-                in_params["model_dirs"],
-                in_params["is_lstm"],
-                in_params["is_torque_actuators"],
+                params["model_dirs"],
+                params["is_lstm"],
+                params["is_torque_actuators"],
             )
         ):
-            batch_params = {
+            job_params = {
                 "model_dir": model,
                 "lstm": lstm,
                 "torque_actuators": torque,
             }
             for field in ["ref_path", "stac_params", "offset_path"]:
-                batch_params[field] = os.path.join(project_folder, in_params[field])
-            batch_params["test"] = in_params["test"]
-            batch_params["batch_file"] = os.path.join(
+                job_params[field] = os.path.join(project_folder, params[field])
+            job_params["test"] = params["test"]
+            job_params["batch_file"] = os.path.join(
                 project_folder, "_batch_args%d.p" % (n_model)
             )
-            batch_params["save_dir"] = os.path.join(
-                project_folder, in_params["save_dir"], os.path.basename(model)
+            job_params["save_dir"] = os.path.join(
+                project_folder, params["save_dir"], os.path.basename(model)
             )
-            batch_params["dataset"] = "dannce_ephys_" + os.path.basename(project_folder)
-            out_params.append(batch_params.copy())
-    return out_params
+            job_params["dataset"] = "dannce_ephys_" + os.path.basename(project_folder)
+            job_params["latent_noise"] = params["latent_noise"]
+            job_params["video_length"] = params["video_length"]
+            job_params["loop"] = params["loop"]
+            total_params.append(job_params.copy())
+    return total_params
 
 
 def parse() -> Dict:
@@ -284,9 +238,10 @@ def parse() -> Dict:
 
 def main():
     params = parse()
-    for batch_params in params:
+    for job_params in params:
         time.sleep(1)
-        dispatch(batch_params)
+        dispatcher = ParallelNpmpDispatcher(job_params)
+        dispatcher.dispatch()
 
 
 if __name__ == "__main__":
