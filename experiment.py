@@ -8,7 +8,7 @@ import tensorflow.compat.v1 as tf
 from observer import Observer, MlpObserver, LstmObserver
 from feeder import MlpFeeder, LstmFeeder
 from system import System
-from loop import Loop, OpenLoop, ClosedLoop
+from loop import ClosedLoopMultiSample, Loop, OpenLoop, ClosedLoop
 
 tf.compat.v1.disable_eager_execution()
 
@@ -169,42 +169,8 @@ def npmp_embed_single_batch():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "ref_path",
-        help="Path to .hdf5 reference trajectories.",
-    )
-    parser.add_argument(
-        "save_dir",
-        help="Folder in which to save .mat files.",
-    )
-    parser.add_argument(
-        "dataset",
-        help="Name of dataset registered in dm_control.",
-    )
-    parser.add_argument(
-        "model_dir",
-        help="path to rodent tracking model.",
-    )
-    parser.add_argument(
-        "--stac-params",
-        dest="stac_params",
-        help="Path to stac params (.yaml).",
-    )
-    parser.add_argument(
-        "--offset-path",
-        dest="offset_path",
-        help="Path to stac output with offset(.p).",
-    )
-    parser.add_argument(
-        "--batch-file",
-        dest="batch_file",
-        default="_batch_args.p",
-        help="Path to stac output with offset(.p).",
-    )
-    parser.add_argument(
-        "--use-open-loop",
-        dest="use_open_loop",
-        default=False,
-        help="If True, use open loop.",
+        "batch_file",
+        help="Path to batch arguments file.",
     )
     args = parser.parse_args()
 
@@ -214,39 +180,46 @@ def npmp_embed_single_batch():
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
     batch_args = batch_args[task_id]
     print(batch_args)
-    # args = args.__dict__
-    # del args["batch_file"]
 
+    # Get the system, observer, feeder, and loop
     system = System(
-        ref_path=args.ref_path,
-        model_dir=args.model_dir,
-        dataset=args.dataset,
-        stac_params=args.stac_params,
-        offset_path=args.offset_path,
+        ref_path=batch_args["ref_path"],
+        model_dir=batch_args["model_dir"],
+        dataset=batch_args["dataset"],
+        stac_params=batch_args["stac_params"],
+        offset_path=batch_args["offset_path"],
         start_step=batch_args["start_step"],
         torque_actuators=batch_args["torque_actuators"],
+        latent_noise=batch_args["latent_noise"],
     )
     if batch_args["lstm"]:
-        observer = LstmObserver(system.environment, args.save_dir)
+        observer = LstmObserver(system.environment, batch_args["save_dir"])
         feeder = LstmFeeder()
     else:
-        observer = MlpObserver(system.environment, args.save_dir)
+        observer = MlpObserver(system.environment, batch_args["save_dir"])
         feeder = MlpFeeder()
 
-    if args.use_open_loop:
+    print(batch_args["loop"])
+    if batch_args["loop"] == "open":
         loop = OpenLoop(
             system.environment,
             feeder,
             batch_args["start_step"],
             batch_args["video_length"],
         )
-    else:
+    elif batch_args["loop"] == "closed":
         loop = ClosedLoop(
             system.environment,
             feeder,
             batch_args["start_step"],
             batch_args["video_length"],
         )
-
+    elif batch_args["loop"] == "multi_sample":
+        loop = ClosedLoopMultiSample(
+            system.environment,
+            feeder,
+            batch_args["start_step"],
+            batch_args["video_length"],
+        )
     exp = Experiment(system, observer, loop)
     exp.run()
