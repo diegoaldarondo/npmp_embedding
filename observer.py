@@ -163,7 +163,7 @@ class Observer:
         """Observe model features.
 
         Args:
-            action_output_np (Dict): Description
+            action_output_np (Dict): Dict of numpy arrays with network features.
             timestep (TYPE): Description
         """
         for feature in self.network_features:
@@ -257,9 +257,10 @@ class Observer:
             os.makedirs(os.path.dirname(save_path))
 
         action_names = self.env.physics.named.data.act.axes.row.names
-        out_dict = {k: np.array(v) for k, v in self.data.items()}
-        out_dict["action_names"] = action_names
-        savemat(save_path, out_dict)
+        for k, v in self.data.items():
+            self.data[k] = np.array(v)
+        self.data["action_names"] = action_names
+        savemat(save_path, self.data)
 
 
 class MlpObserver(Observer):
