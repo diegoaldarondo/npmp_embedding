@@ -1,14 +1,20 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
-from absl.testing import absltest
+from unittest import TestCase
 import dispatch_embed
 import experiment
 import observer
 import unittest
 from feeder import LstmFeeder, MlpFeeder
-from loop import OpenLoop, ClosedLoop, ClosedLoopMultiSample
+from loop import (
+    OpenLoop,
+    ClosedLoop,
+    ClosedLoopMultiSample,
+    ClosedLoopOverwriteLatents,
+    uniform_noise,
+    invert_noise,
+)
 from system import System
 
 
@@ -20,8 +26,10 @@ def set_up_experiment(params):
         stac_params=params["stac_params"],
         offset_path=params["offset_path"],
         start_step=0,
+        # start_step=357500,  # To test the end loop handling
         torque_actuators=params["torque_actuators"],
-        latent_noise=True,
+        latent_noise=params["latent_noise"],
+        noise_gain=params["noise_gain"],
     )
     if params["lstm"]:
         obs = observer.LstmObserver(system.environment, params["save_dir"])
@@ -29,7 +37,10 @@ def set_up_experiment(params):
     else:
         obs = observer.MlpObserver(system.environment, params["save_dir"])
         feeder = MlpFeeder()
-    loop = ClosedLoop(system.environment, feeder, start_step=0, video_length=10)
+    loop = ClosedLoop(
+        system.environment, feeder, start_step=0, video_length=2500, action_noise=True
+    )
+    # loop = ClosedLoopOverwriteLatents(system.environment, feeder, start_step=0, video_length=2500)
     return experiment.Experiment(system, obs, loop)
 
 
@@ -58,37 +69,37 @@ EXP = set_up_experiment(params[0])
 # EXP = set_up_experiment(params[1])
 
 
-class ExperimentTest(absltest.TestCase):
-    def test_setup(self):
-        self.assertTrue(isinstance(EXP, experiment.Experiment))
+# class ExperimentTest(absltest.TestCase):
+#     def test_setup(self):
+#         self.assertTrue(isinstance(EXP, experiment.Experiment))
 
-    def test_run_mlp(self):
-        EXP.run()
-
-
-class ObserverTest(absltest.TestCase):
-    def clear_observations(self):
-        EXP.observer.cam_list = []
-
-    def setUp(self):
-        self.clear_observations()
-
-    def tearDown(self):
-        self.clear_observations()
-
-    def test_grab_frame_no_segmentation_mlp(self):
-        self.grab_frame(EXP, False)
-
-    def test_grab_frame_segmentation_mlp(self):
-        self.grab_frame(EXP, True)
-
-    def grab_frame(self, exp, seg_frames):
-        exp.observer.seg_frames = seg_frames
-        exp.observer.grab_frame()
-        self.assertEqual(exp.observer.cam_list[0].shape, tuple(observer.IMAGE_SIZE))
+#     def test_run_mlp(self):
+#         EXP.run()
 
 
-class LoopTest(absltest.TestCase):
+# class ObserverTest(absltest.TestCase):
+#     def clear_observations(self):
+#         EXP.observer.cam_list = []
+
+#     def setUp(self):
+#         self.clear_observations()
+
+#     def tearDown(self):
+#         self.clear_observations()
+
+#     def test_grab_frame_no_segmentation_mlp(self):
+#         self.grab_frame(EXP, False)
+
+#     def test_grab_frame_segmentation_mlp(self):
+#         self.grab_frame(EXP, True)
+
+#     def grab_frame(self, exp, seg_frames):
+#         exp.observer.seg_frames = seg_frames
+#         exp.observer.grab_frame()
+#         self.assertEqual(exp.observer.cam_list[0].shape, tuple(observer.IMAGE_SIZE))
+
+
+class LoopTest(TestCase):
     def loop(self, loop_fn, exp):
         exp.loop = loop_fn(
             exp.system.environment,
@@ -98,15 +109,27 @@ class LoopTest(absltest.TestCase):
         )
         exp.run()
 
-    def test_open(self):
-        self.loop(OpenLoop, EXP)
+    # def test_open(self):
+    #     self.loop(OpenLoop, EXP)
 
-    def test_closed(self):
-        self.loop(ClosedLoop, EXP)
+    # def test_closed(self):
+    #     self.loop(ClosedLoop, EXP)
 
-    def test_closed_multi_sample(self):
-        self.loop(ClosedLoopMultiSample, EXP)
+    def test_closed_loop_overwrite_latents(self):
+        EXP.loop = ClosedLoopOverwriteLatents(
+            EXP.system.environment,
+            EXP.loop.feeder,
+            EXP.loop.start_step,
+            EXP.loop.video_length,
+            uniform_noise,
+            action_noise=True,
+        )
+        EXP.run()
 
+    # def test_closed_multi_sample(self):
+    #     self.loop(ClosedLoopMultiSample, EXP)
+
+    # def test_end_loop(self):
     # def test_open_lstm(self):
     #     self.loop(experiment.OpenLoop, lstm_exp)
 
@@ -115,4 +138,4 @@ class LoopTest(absltest.TestCase):
 
 
 if __name__ == "__main__":
-    absltest.main()
+    unittest.main()

@@ -13,6 +13,7 @@ import numpy as np
 import sys
 import os
 import argparse
+from scipy.io import loadmat
 from typing import Text, List, Tuple, Dict, Union
 
 
@@ -72,14 +73,16 @@ class NpmpPreprocessor:
         self.clip_length = clip_length
         self.ref_steps = ref_steps
 
-        with open(self.stac_path, "rb") as f:
-            in_dict = pickle.load(f)
-            self.qpos = in_dict["qpos"]
-            # if end_step is not None:
-            #     self.end_step = np.min([n_samples, self.end_step])
-            #     self.qpos = in_dict["qpos"][self.start_step:self.end_step, :]
-            # else:
-            #     self.qpos = in_dict["qpos"][self.start_step:, :]
+        with h5py.File(self.stac_path, "r") as file:
+            self.qpos = file["qpos"][:]
+        # with open(self.stac_path, "rb") as f:
+        #     in_dict = pickle.load(f)
+        #     self.qpos = in_dict["qpos"]
+        # if end_step is not None:
+        #     self.end_step = np.min([n_samples, self.end_step])
+        #     self.qpos = in_dict["qpos"][self.start_step:self.end_step, :]
+        # else:
+        #     self.qpos = in_dict["qpos"][self.start_step:, :]
 
         self.walker = rodent.Rat(torque_actuators=False, foot_mods=True)
         self.arena = floors.Floor(size=(10.0, 10.0))
@@ -279,9 +282,13 @@ class NpmpPreprocessingDispatcher:
         Returns:
             int: End frame in clip.
         """
-        with open(self.stac_path, "rb") as f:
-            in_dict = pickle.load(f)
-            n_samples = in_dict["qpos"].shape[0]
+        with h5py.File(self.stac_path, "r") as file:
+            n_samples = file["qpos"][:].shape[0]
+        # data = loadmat(self.stac_path)
+        # n_samples = data["qpos"][:].shape[0]
+        # with open(self.stac_path, "rb") as f:
+        #     in_dict = pickle.load(f)
+        #     n_samples = in_dict["qpos"].shape[0]
         return n_samples
 
     def dispatch(self):

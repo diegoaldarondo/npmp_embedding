@@ -1,0 +1,108 @@
+# Run for all of these folders.
+project_folders:
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_16_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_17_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_18_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_19_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_20_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_21_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_22_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_23_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_24_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_25_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_26_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_27_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_28_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_30_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_31_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_01_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_02_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_03_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_06_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_05_30_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_05_31_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_01_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_02_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_03_1
+- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_06_1
+ref_path: "npmp_preprocessing/total.hdf5"
+stac_params: "stac_params/params.yaml"
+offset_path: "stac/offset.p"
+save_dir: "npmp"
+is_lstm: 
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - True
+    - True
+    # - True
+    # - True
+    # - True
+    # - False
+    # - False
+    # - False
+    # - False
+
+    # - False
+    # - False
+is_torque_actuators: 
+    # - False
+    # - False
+    # - False
+    # - False
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+
+    # - False
+    # - False
+# Run for all of these models.
+model_dirs: 
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_1_final"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_2_final"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_final"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_4_final"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_1"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_2"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_3"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_4"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_5"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_2"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_3"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_4"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_5"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_3"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_4"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_5"
+
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3"
+    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_no_noise"
+
+test: False
+
+latent_noise: "none"
+
+video_length: 2500
+
+loop: "closed"
+
+unfinished_only: False

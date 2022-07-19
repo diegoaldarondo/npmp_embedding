@@ -1,0 +1,39 @@
+# Run for all of these folders.
+project_folders:
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/art/2020_12_22_2"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/art/2020_12_23_1" 
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/bud/2020_06_21_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/bud/2021_06_28_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/coltrane/2021_07_28_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_01_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/duke/2022_02_16_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/duke/2022_02_25_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/espie/2022_03_10_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/espie/2022_03_15_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_16_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_24_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/gerry/2022_05_30_1"
+    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_03_1"
+ref_path: "npmp_preprocessing/total.hdf5"
+stac_params: "stac_params/params.yaml"
+offset_path: "stac/offset.p"
+save_dir: "npmp/multi_sample"
+is_lstm: 
+    - False
+
+is_torque_actuators: 
+    - True
+
+# Run for all of these models.
+model_dirs:
+    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2"
+
+latent_noise: True
+
+test: False
+
+video_length: 2500
+
+loop: "multi_sample"
+
+unfinished_only: False

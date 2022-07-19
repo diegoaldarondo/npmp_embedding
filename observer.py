@@ -159,12 +159,15 @@ class Observer:
                 enums.mjtVisFlag.mjVIS_TRANSPARENT
             ] = True
 
-    def observe(self, action_output_np: Dict, timestep):
+    def observe(
+        self, action_output_np: Dict, timestep, record_physical_features: bool = True
+    ):
         """Observe model features.
 
         Args:
             action_output_np (Dict): Dict of numpy arrays with network features.
-            timestep (TYPE): Description
+            timestep (TYPE): Timestep of the environment.
+            record_physical_features (bool, optional): If true, record physical features.
         """
         for feature in self.network_features:
             self.data[feature].append(action_output_np[feature].copy())
@@ -176,14 +179,18 @@ class Observer:
             self.data["reward"].append(timestep.reward)
 
         # Record model features.
-        self.data["walker_body_sites"].append(
-            np.copy(self.env.physics.bind(self.env.task._walker.body_sites).xpos[:])
-        )
-        self.data["qfrc"].append(np.copy(self.env.physics.named.data.qfrc_actuator[:]))
-        self.data["qpos"].append(np.copy(self.env.physics.named.data.qpos[:]))
-        self.data["qvel"].append(np.copy(self.env.physics.named.data.qvel[:]))
-        self.data["qacc"].append(np.copy(self.env.physics.named.data.qacc[:]))
-        self.data["xpos"].append(np.copy(self.env.physics.named.data.xpos[:]))
+        if record_physical_features:
+            self.data["walker_body_sites"].append(
+                np.copy(self.env.physics.bind(self.env.task._walker.body_sites).xpos[:])
+            )
+            self.data["qfrc"].append(
+                np.copy(self.env.physics.named.data.qfrc_actuator[:])
+            )
+            self.data["qpos"].append(np.copy(self.env.physics.named.data.qpos[:]))
+            self.data["qvel"].append(np.copy(self.env.physics.named.data.qvel[:]))
+            self.data["qacc"].append(np.copy(self.env.physics.named.data.qacc[:]))
+            self.data["xpos"].append(np.copy(self.env.physics.named.data.xpos[:]))
+
         for obs in self.network_observations:
             self.data[obs].append(timestep.observation[obs])
         self.data["reset"].append(timestep.last())

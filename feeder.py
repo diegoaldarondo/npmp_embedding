@@ -140,11 +140,13 @@ class Feeder:
         actions: Dict,
         states: List,
         observations: List = OBSERVATIONS,
+        tag: str = "",
     ):
         self.inputs = inputs
         self.actions = actions
         self.states = states
         self.observations = observations
+        self.tag = tag
 
     def feed(self, timestep, action_output_np: np.ndarray = None):
         feed_dict = {}
@@ -172,7 +174,8 @@ class Feeder:
             Dict: full input dict
         """
         self.graph_inputs = {
-            k: sess.graph.get_tensor_by_name(v) for k, v in self.inputs.items()
+            self.tag + k: sess.graph.get_tensor_by_name(self.tag + v)
+            for k, v in self.inputs.items()
         }
         return self.graph_inputs
 
@@ -186,7 +189,8 @@ class Feeder:
             Dict: Action output dict
         """
         action_output = {
-            k: sess.graph.get_tensor_by_name(v) for k, v in self.actions.items()
+            self.tag + k: sess.graph.get_tensor_by_name(self.tag + v)
+            for k, v in self.actions.items()
         }
         return action_output
 

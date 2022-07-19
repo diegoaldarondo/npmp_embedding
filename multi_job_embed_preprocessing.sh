@@ -9,7 +9,7 @@
 #SBATCH -c 1
 #SBATCH -p olveczky,shared,serial_requeue
 #SBATCH --exclude=holy2c18111 #seasmicro25 was removed
-#SBATCH --constraint="intel&avx"
+#SBATCH --constraint="intel&avx2"
 source ~/.bashrc
-setup_mujoco200_3.7
+setup_mujoco210_3.7
 npmp-preprocessing-single-batch

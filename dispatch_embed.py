@@ -8,6 +8,8 @@ import argparse
 from typing import Text, List, Dict, Tuple, Union
 import time
 
+N_PROJECT_FOLDERS_SIMULTANEOUSLY = 1
+
 
 class ParallelNpmpDispatcher:
 
@@ -47,15 +49,15 @@ class ParallelNpmpDispatcher:
         self.start_steps = np.arange(0, self.clip_end, self.params["video_length"])
         self.end_steps = self.start_steps + self.params["video_length"]
         self.end_steps[-1] = self.clip_end
-        batch_args = []
+        self.batch_args = []
         for start, end in zip(self.start_steps, self.end_steps):
             args = self.params.copy()
             args["start_step"] = start
             args["end_step"] = end
             args["lstm"] = self.params["lstm"]
             args["torque_actuators"] = self.params["torque_actuators"]
-            batch_args.append(args)
-        self.save_batch_args(batch_args)
+            self.batch_args.append(args)
+        self.save_batch_args()
 
     def get_clip_end(self) -> int:
         """Get the final step in the dataset.
@@ -70,32 +72,47 @@ class ParallelNpmpDispatcher:
                 num_steps += self.params["video_length"]
         return num_steps
 
+    def _get_unfinished(self):
+        out_folder = os.path.join(self.params["save_dir"], "logs")
+        if os.path.isdir(out_folder):
+            files = [f for f in os.listdir(out_folder) if ".mat" in f]
+            files = [f for f in files if "data" not in f]
+            inds = [int(f.split(".")[0]) for f in files]
+            inds = [start not in inds for start in self.start_steps]
+        else:
+            inds = [True for _ in self.start_steps]
+        return inds
+
     def dispatch(self):
         """Submit the job to the cluster."""
-        if not self.params["test"]:
-            cmd1 = '"sbatch --wait --array=0-%d multi_job_embed.sh %s"' % (
-                len(self.start_steps) - 1,
-                self.params["batch_file"],
-            )
+        if len(self.batch_args) >= 1:
+            if not self.params["test"]:
+                cmd1 = '"sbatch --wait --array=0-%d multi_job_embed.sh %s"' % (
+                    len(self.batch_args) - 1,
+                    self.params["batch_file"],
+                )
+            else:
+                cmd1 = '"sbatch --wait --array=215 multi_job_embed.sh %s"' % (
+                    self.params["batch_file"],
+                )
+
+            out_folder = os.path.join(self.params["save_dir"], "logs")
+            cmd2 = '"merge-embed %s"' % (out_folder)
+            cmd = "sbatch --wait embed.sh " + cmd1 + " " + cmd2
+            print(cmd, flush=True)
+            os.system(cmd)
         else:
-            cmd1 = '"sbatch --wait --array=0 multi_job_embed.sh %s"' % (
-                self.params["batch_file"],
-            )
+            print("No unfinished chunks", flush=True)
 
-        out_folder = os.path.join(self.params["save_dir"], "logs")
-        cmd2 = '"merge-embed %s"' % (out_folder)
-        cmd = "sbatch embed.sh " + cmd1 + " " + cmd2
-        print(cmd)
-        os.system(cmd)
-
-    def save_batch_args(self, batch_args: Dict):
-        """Save the batch arguments.
-
-        Args:
-            batch_args (Dict): Arguments for each of the jobs in the batch array.
-        """
+    def save_batch_args(self):
+        """Save the batch arguments."""
+        if self.params["unfinished_only"]:
+            unfinished = self._get_unfinished()
+            self.batch_args = [
+                args for i, args in enumerate(self.batch_args) if unfinished[i]
+            ]
         with open(self.params["batch_file"], "wb") as f:
-            pickle.dump(batch_args, f)
+            pickle.dump(self.batch_args, f)
 
 
 def dispatch_npmp_embed():
@@ -183,9 +200,33 @@ def build_params(param_path: Text) -> List[Dict]:
         param_path (Text): Path to parameters .yaml file.
 
     Returns:
-        List[Dict]: Parameters for each batch job.
+        List[Dict]: List containing a parameters
+            (dicts) for each job for each project folder.
     """
     params = load_params(param_path)
+    total_params = setup_job_params(params)
+    return total_params
+
+
+def build_params_for_session(param_path: Text, project_folders: List) -> List[Dict]:
+    """Build list of parameters for a batch array job.
+
+    Args:
+        param_path (Text): Path to parameters .yaml file.
+
+    Returns:
+        List[Dict]: List containing a parameters
+            (dicts) for each job for each project folder.
+    """
+    params = load_params(param_path)
+    params["project_folders"] = project_folders
+    total_params = setup_job_params(params)
+    import pdb
+
+    return total_params
+
+
+def setup_job_params(params):
     total_params = []
 
     # Cycle through project folders and models.
@@ -211,8 +252,12 @@ def build_params(param_path: Text) -> List[Dict]:
             job_params["save_dir"] = os.path.join(
                 project_folder, params["save_dir"], os.path.basename(model)
             )
-            job_params["dataset"] = "dannce_ephys_" + os.path.basename(project_folder)
+            job_params["dataset"] = (
+                project_folder.split("/")[-2] + "_" + os.path.basename(project_folder)
+            )
             job_params["latent_noise"] = params["latent_noise"]
+            job_params["noise_gain"] = params["noise_gain"]
+            job_params["unfinished_only"] = params["unfinished_only"]
             job_params["video_length"] = params["video_length"]
             job_params["loop"] = params["loop"]
             total_params.append(job_params.copy())
@@ -223,7 +268,7 @@ def parse() -> Dict:
     """Return the parameters specified in the command line.
 
     Returns:
-        Dict: Parameters dictionary
+        Text: Parameters path
     """
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -233,15 +278,65 @@ def parse() -> Dict:
         help="Path to .yaml file specifying npmp embedding parameters.",
     )
     args = parser.parse_args()
-    return build_params(args.params)
+    return args.params
 
 
 def main():
-    params = parse()
-    for job_params in params:
-        time.sleep(1)
-        dispatcher = ParallelNpmpDispatcher(job_params)
-        dispatcher.dispatch()
+    """Dispatch npmp jobs for multiple project folders.
+
+    Only submits the jobs one project folder at a time.
+    """
+    param_path = parse()
+    params = build_params(param_path)
+    cmd = "sbatch --array=0-%d%%20 submit_projects.sh %s" % (
+        len(params) - 1,
+        param_path,
+    )
+    # cmd = "sbatch --array=0-%d%%%d submit_projects.sh %s" % (len(params) - 1, N_PROJECT_FOLDERS_SIMULTANEOUSLY, param_path)
+    os.system(cmd)
+
+
+def submit_project(param_path: Text):
+    """Submit jobs for a single run.
+
+    Args:
+        param_path (Text): Path to the parameters .yaml file.
+    """
+    params = build_params(param_path)
+
+    # Only use params for the project folder specified by the task_id
+    task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
+    params = params[task_id]
+    dispatcher = ParallelNpmpDispatcher(params)
+    dispatcher.dispatch()
+
+
+def submit_session(param_path: Text, project_folder: Text):
+    """Submit jobs for a single run.
+
+    Args:
+        param_path (Text): Path to the parameters .yaml file.
+    """
+    params = build_params_for_session(param_path, [project_folder])
+    task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
+    params = params[task_id]
+    # Only use params for the project folder specified by the task_id
+    dispatcher = ParallelNpmpDispatcher(params)
+    dispatcher.dispatch()
+
+
+def main_session(param_path: Text, project_folder: Text):
+    """Dispatch npmp jobs for multiple project folders.
+
+    Only submits the jobs one project folder at a time.
+    """
+    params = build_params_for_session(param_path, [project_folder])
+    cmd = "sbatch --wait --array=0-%d%%20 submit_session.sh %s %s" % (
+        len(params) - 1,
+        param_path,
+        project_folder,
+    )
+    os.system(cmd)
 
 
 if __name__ == "__main__":

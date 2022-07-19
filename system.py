@@ -8,7 +8,13 @@ import numpy as np
 import pickle
 import yaml
 import tensorflow.compat.v1 as tf
+
+# import tf.contrib as ge
 from typing import Dict, Text, Tuple
+
+LATENT_DIM = (1, 60)
+NOISE_FLOOR = 0.01
+SCALE_MULTIPLIER = 0.99
 
 
 def load_params(param_path: Text) -> Dict:
@@ -63,7 +69,8 @@ class System:
         max_action: float = 1.0,
         start_step: int = 0,
         torque_actuators: bool = False,
-        latent_noise: bool = False,
+        latent_noise: Text = None,
+        noise_gain: float = 1.0,
     ):
         """Initialize system for rat imitation experiments.
 
@@ -86,8 +93,8 @@ class System:
             start_step (int, optional): First step of video. Defaults to 0.
             torque_actuators (bool, optional): If True, use torque as model output.
                 Defaults to False.
-            latent_noise (bool, optional): If True, sample from the latent distribution.
-                Defaults to False.
+            latent_noise (Text, optional): Type of latent noise. Defaults to None.
+            noise_gain (float, optional): Scaling factor for latent noise. Defaults to 1.0.
         """
         self.ref_path = ref_path
         self.model_dir = model_dir
@@ -107,6 +114,7 @@ class System:
         self.start_step = start_step
         self.torque_actuators = torque_actuators
         self.latent_noise = latent_noise
+        self.noise_gain = noise_gain
 
         # Set up the stac parameters to compute the inferred keypoints
         # in CoMic rollouts.
@@ -161,9 +169,9 @@ class System:
         Args:
             sess (tf.Session): Tensorflow Session
         """
-        if self.latent_noise:
+        if self.latent_noise == "standard":
             zeros_tensor_name = "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/zeros_like_1:0"
-            gaussian_tensor = tf.random.normal((1, 60))
+            gaussian_tensor = tf.random.normal(LATENT_DIM) * self.noise_gain
             tf.saved_model.loader.load(
                 sess,
                 ["tag"],
@@ -171,5 +179,53 @@ class System:
                 input_map={zeros_tensor_name: gaussian_tensor},
                 **kwargs
             )
-        else:
+        elif self.latent_noise == "uniform":
+            zeros_tensor_name = "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/zeros_like_1:0"
+            gaussian_tensor = tf.random.normal(LATENT_DIM) * self.noise_gain
+            sigmoid_name = (
+                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/Sigmoid:0"
+            )
+            placeholder = tf.placeholder_with_default(
+                tf.ones(LATENT_DIM, dtype=tf.float32),
+                shape=LATENT_DIM,
+                name="placeholder",
+            )
+
+            tf.saved_model.loader.load(
+                sess,
+                ["tag"],
+                self.model_dir,
+                input_map={
+                    zeros_tensor_name: gaussian_tensor,
+                    sigmoid_name: placeholder,
+                },
+                **kwargs
+            )
+
+        elif self.latent_noise == "inverted":
+            zeros_tensor_name = "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/zeros_like_1:0"
+            gaussian_tensor = tf.random.normal(LATENT_DIM) * self.noise_gain
+            sigmoid_name = (
+                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/Sigmoid:0"
+            )
+            placeholder = tf.placeholder_with_default(
+                tf.ones(LATENT_DIM, dtype=tf.float32),
+                shape=LATENT_DIM,
+                name="placeholder",
+            )
+
+            tf.saved_model.loader.load(
+                sess,
+                ["tag"],
+                self.model_dir,
+                input_map={
+                    zeros_tensor_name: gaussian_tensor,
+                    sigmoid_name: placeholder,
+                },
+                **kwargs
+            )
+
+        elif self.latent_noise is None or self.latent_noise == "none":
             tf.saved_model.loader.load(sess, ["tag"], self.model_dir, **kwargs)
+        else:
+            raise ValueError("Unknown latent noise type.")

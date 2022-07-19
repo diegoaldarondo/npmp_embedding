@@ -4,6 +4,7 @@ import argparse
 from typing import Text, List, Dict
 from scipy.io import loadmat
 import h5py
+import dispatch_embed
 
 
 def get_files(folder: Text) -> List:
@@ -34,31 +35,33 @@ def merge_files():
     parser.add_argument(
         "--delete-chunks",
         dest="delete_chunks",
-        default=True,
+        default=False,
         help="Whether or not to delete chunks",
     )
     args = parser.parse_args()
+    merge(args.folder, args.delete_chunks)
 
+
+def merge(folder, delete_chunks=False):
     # Load the files
-    log_files = get_files(args.folder)
+    log_files = get_files(folder)
     data = load_files(log_files)
-
-    save_merge_file(args.folder, data)
-
-    if args.delete_chunks:
+    save_merge_file(folder, data)
+    if delete_chunks:
         for f in log_files:
             print("deleting", f)
             os.remove(f)
 
+
 def load_files(log_files: List) -> Dict:
-    """Load and merge data from all batch files. 
+    """Load and merge data from all batch files.
 
     Args:
         log_files (List): List of files to load
 
     Returns:
         Dict: Merged data
-    """ 
+    """
     # Get the first file for the keys
     chunk = loadmat(log_files[0])
     fields = [field for field in chunk.keys() if "__" not in field]
@@ -97,3 +100,15 @@ def save_merge_file(folder: Text, data: Dict):
                     "action_names",
                     data=np.array(names, dtype=h5py.string_dtype("utf-8", 30)),
                 )
+
+
+def merge_all(params_path: Text):
+    """Merge all of the chunks in the save folders specified by the params dict.
+
+    Args:
+        params_path (Text): Path to embedding configuration .yaml file.
+    """
+    params = dispatch_embed.build_params(params_path)
+    for job_params in params:
+        save_folder = os.path.join(job_params["save_dir"], "logs")
+        merge(save_folder)
