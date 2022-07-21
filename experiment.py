@@ -8,16 +8,8 @@ import tensorflow.compat.v1 as tf
 from observer import Observer, MlpObserver, LstmObserver
 from feeder import MlpFeeder, LstmFeeder
 from system import System
-from loop import (
-    ClosedLoopMultiSample,
-    Loop,
-    OpenLoop,
-    ClosedLoop,
-    ClosedLoopOverwriteLatents,
-    uniform_noise,
-    invert_noise,
-    clamp_noise,
-)
+import loop
+
 
 tf.compat.v1.disable_eager_execution()
 
@@ -27,7 +19,7 @@ class Experiment:
         self,
         system: System,
         observer: Observer,
-        loop: Loop,
+        looper: loop.Loop,
     ):
         """Initialize experiment
 
@@ -38,15 +30,15 @@ class Experiment:
         """
         self.system = system
         self.observer = observer
-        self.loop = loop
+        self.looper = looper
 
     def run(self):
         """Run the environment through the loop using system model."""
         with tf.Session() as sess:
             self.system.load_model(sess)
             graph = tf.get_default_graph()
-            timestep, feed_dict, action_output = self.loop.initialize(sess)
-            self.loop.loop(sess, action_output, timestep, feed_dict, self.observer)
+            timestep, feed_dict, action_output = self.looper.initialize(sess)
+            self.looper.loop(sess, action_output, timestep, feed_dict, self.observer)
 
 
 def parse():
@@ -180,7 +172,7 @@ def npmp_embed_single_batch():
     batch_args = batch_args[task_id]
     print(batch_args)
 
-    # Get the system, observer, feeder, and loop
+    # Get the system, observer, feeder, and looper
     system = System(
         ref_path=batch_args["ref_path"],
         model_dir=batch_args["model_dir"],
@@ -201,7 +193,7 @@ def npmp_embed_single_batch():
 
     print(batch_args["loop"])
     if batch_args["loop"] == "open":
-        loop = OpenLoop(
+        looper = loop.OpenLoop(
             system.environment,
             feeder,
             batch_args["start_step"],
@@ -209,7 +201,7 @@ def npmp_embed_single_batch():
             action_noise=batch_args["action_noise"],
         )
     elif batch_args["loop"] == "closed":
-        loop = ClosedLoop(
+        looper = loop.ClosedLoop(
             system.environment,
             feeder,
             batch_args["start_step"],
@@ -217,7 +209,7 @@ def npmp_embed_single_batch():
             action_noise=batch_args["action_noise"],
         )
     elif batch_args["loop"] == "multi_sample":
-        loop = ClosedLoopMultiSample(
+        looper = loop.ClosedLoopMultiSample(
             system.environment,
             feeder,
             batch_args["start_step"],
@@ -225,61 +217,19 @@ def npmp_embed_single_batch():
             action_noise=batch_args["action_noise"],
         )
     elif batch_args["loop"] == "closed_loop_overwrite_latents":
-
-        if batch_args["latent_noise"] == "uniform":
-            if batch_args["variability_clamp"]:
-                overwrite_fn = lambda sess, feed_dict: clamp_noise(
-                    sess, feed_dict, noise_type="uniform"
-                )
-            else:
-                overwrite_fn = uniform_noise
-            loop = ClosedLoopOverwriteLatents(
-                system.environment,
-                feeder,
-                batch_args["start_step"],
-                batch_args["video_length"],
-                overwrite_fn,
-                action_noise=batch_args["action_noise"],
+        if batch_args["variability_clamp"]:
+            overwrite_fn = lambda sess, feed_dict: loop.clamp_noise(
+                sess, feed_dict, noise_type=batch_args["latent_noise"]
             )
-        elif batch_args["latent_noise"] == "inverted":
-            if batch_args["variability_clamp"]:
-                overwrite_fn = lambda sess, feed_dict: clamp_noise(
-                    sess, feed_dict, noise_type="inverted"
-                )
-            else:
-                overwrite_fn = invert_noise
-            overwrite_fn = invert_noise
-            loop = ClosedLoopOverwriteLatents(
-                system.environment,
-                feeder,
-                batch_args["start_step"],
-                batch_args["video_length"],
-                overwrite_fn,
-                action_noise=batch_args["action_noise"],
-            )
-        elif batch_args["latent_noise"] == "standard":
-            if batch_args["variability_clamp"]:
-                overwrite_fn = lambda sess, feed_dict: clamp_noise(
-                    sess, feed_dict, noise_type="standard"
-                )
-                loop = ClosedLoopOverwriteLatents(
-                    system.environment,
-                    feeder,
-                    batch_args["start_step"],
-                    batch_args["video_length"],
-                    overwrite_fn,
-                    action_noise=batch_args["action_noise"],
-                )
-            # Standard does not need to be overwritten when not clamping
-            else:
-                overwrite_fn = invert_noise
-                batch_args["loop"] = "closed"
-                loop = ClosedLoop(
-                    system.environment,
-                    feeder,
-                    batch_args["start_step"],
-                    batch_args["video_length"],
-                    action_noise=batch_args["action_noise"],
-                )
-    exp = Experiment(system, observer, loop)
+        else:
+            overwrite_fn = loop.get_noise_overwrite_fn(batch_args["latent_noise"])
+        looper = loop.ClosedLoopOverwriteLatents(
+            system.environment,
+            feeder,
+            batch_args["start_step"],
+            batch_args["video_length"],
+            overwrite_fn,
+            action_noise=batch_args["action_noise"],
+        )
+    exp = Experiment(system, observer, looper)
     exp.run()

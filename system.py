@@ -169,28 +169,19 @@ class System:
         Args:
             sess (tf.Session): Tensorflow Session
         """
-        if self.latent_noise == "standard":
-            zeros_tensor_name = "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/zeros_like_1:0"
-            gaussian_tensor = tf.random.normal(LATENT_DIM) * self.noise_gain
-            tf.saved_model.loader.load(
-                sess,
-                ["tag"],
-                self.model_dir,
-                input_map={zeros_tensor_name: gaussian_tensor},
-                **kwargs
-            )
-        elif self.latent_noise == "uniform":
-            zeros_tensor_name = "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/zeros_like_1:0"
-            gaussian_tensor = tf.random.normal(LATENT_DIM) * self.noise_gain
-            sigmoid_name = (
-                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/Sigmoid:0"
-            )
-            placeholder = tf.placeholder_with_default(
-                tf.ones(LATENT_DIM, dtype=tf.float32),
-                shape=LATENT_DIM,
-                name="placeholder",
-            )
-
+        zeros_tensor_name = (
+            "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/zeros_like_1:0"
+        )
+        gaussian_tensor = tf.random.normal(LATENT_DIM) * self.noise_gain
+        sigmoid_name = (
+            "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/Sigmoid:0"
+        )
+        placeholder = tf.placeholder_with_default(
+            tf.ones(LATENT_DIM, dtype=tf.float32),
+            shape=LATENT_DIM,
+            name="placeholder",
+        )
+        if self.latent_noise in ["standard", "uniform", "inverted"]:
             tf.saved_model.loader.load(
                 sess,
                 ["tag"],
@@ -201,30 +192,6 @@ class System:
                 },
                 **kwargs
             )
-
-        elif self.latent_noise == "inverted":
-            zeros_tensor_name = "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/zeros_like_1:0"
-            gaussian_tensor = tf.random.normal(LATENT_DIM) * self.noise_gain
-            sigmoid_name = (
-                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/Sigmoid:0"
-            )
-            placeholder = tf.placeholder_with_default(
-                tf.ones(LATENT_DIM, dtype=tf.float32),
-                shape=LATENT_DIM,
-                name="placeholder",
-            )
-
-            tf.saved_model.loader.load(
-                sess,
-                ["tag"],
-                self.model_dir,
-                input_map={
-                    zeros_tensor_name: gaussian_tensor,
-                    sigmoid_name: placeholder,
-                },
-                **kwargs
-            )
-
         elif self.latent_noise is None or self.latent_noise == "none":
             tf.saved_model.loader.load(sess, ["tag"], self.model_dir, **kwargs)
         else:

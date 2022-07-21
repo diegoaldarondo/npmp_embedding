@@ -5,6 +5,10 @@ import observer
 import feeder
 import numpy as np
 
+# Weighting and noise floor for latent scale in model.
+WEIGHT = 0.99
+FLOOR = 0.01
+
 
 class Loop(abc.ABC):
     def __init__(
@@ -214,9 +218,6 @@ class ClosedLoopOverwriteLatents(ClosedLoop):
         super().__init__(env, feeder, start_step, video_length, **kwargs)
         self.overwrite_fn = overwrite_fn
 
-    def invert_noise(self, X):
-        return X
-
     def loop(
         self,
         sess: tf.Session,
@@ -261,6 +262,26 @@ class ClosedLoopOverwriteLatents(ClosedLoop):
             self.end_loop(observer)
 
 
+def standard_noise(sess: tf.Session, feed_dict: Dict) -> np.ndarray:
+    """Get the standard latent noise after the sigmoid operation
+
+    Args:
+        sess (tf.Session): Tensorflow session
+        feed_dict (Dict): Dictionary of inputs
+
+    Returns:
+        np.ndarray: standard latent noise after sigmoid
+    """
+    X = sess.run(
+        sess.graph.get_tensor_by_name(
+            "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:1"
+        ),
+        feed_dict,
+    )
+    sigmoid = 1 / (1 + np.exp(-X))
+    return sigmoid
+
+
 def invert_noise(sess: tf.Session, feed_dict: Dict) -> np.ndarray:
     """Change the latent noise to be inversely distributed across the latent space.
 
@@ -271,16 +292,11 @@ def invert_noise(sess: tf.Session, feed_dict: Dict) -> np.ndarray:
     Returns:
         np.ndarray: Inverted noise
     """
-    X = sess.run(
-        sess.graph.get_tensor_by_name(
-            "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:1"
-        ),
-        feed_dict,
-    )
+    sigmoid = standard_noise(sess, feed_dict)
+
     # Make the large values equal the small ones and vice versa in order.
-    inds = np.argsort(X, axis=1).flatten()
-    X[:, inds] = X[:, inds[::-1]]
-    sigmoid = 1 / (1 + np.exp(-X))
+    inds = np.argsort(sigmoid, axis=1).flatten()
+    sigmoid[:, inds] = sigmoid[:, inds[::-1]]
     return sigmoid
 
 
@@ -294,23 +310,15 @@ def uniform_noise(sess: tf.Session, feed_dict: Dict) -> np.ndarray:
     Returns:
         np.ndarray: Uniform noise
     """
-    X = sess.run(
-        sess.graph.get_tensor_by_name(
-            "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:1"
-        ),
-        feed_dict,
-    )
-    sigmoid = 1 / (1 + np.exp(-X))
+    sigmoid = standard_noise(sess, feed_dict)
 
     # Compute the noise for all latent dimensions that produces a ND-Gaussian with variance equal
     # to the variance of the original ND Gaussian, accouting for the weighting and floor terms.
     # Assumes the Gaussian dimensions are independent.
-    weight = 0.99
-    floor = 0.01
     uniform_average = (
         np.ones_like(sigmoid)
-        * (np.sqrt(np.mean((weight * sigmoid + floor) ** 2, axis=1)) - floor)
-        / weight
+        * (np.sqrt(np.mean((WEIGHT * sigmoid + FLOOR) ** 2, axis=1)) - FLOOR)
+        / WEIGHT
     )
     return uniform_average
 
@@ -320,43 +328,59 @@ def clamp_noise(
     feed_dict: Dict,
     noise_type,
 ) -> np.ndarray:
-    """Change latent noise
+    """Clamp latent noise
+
+    Clamps latent variability to equal the variance of an ND Gaussian times the noise gain.
+
+    Rescales the latent scale such that:
+
+    sum_N(var((a*f(z_i)*w+b)*g*N(0,1))) = sum_N(var(g*N(0,1)))
+    f: latent noise distribution function
+    z_i: ith latent scale
+    N: n dimensions
+    w: weighting
+    b: noise floor
+    g: noise_gain
+    a: rescaling factor.
+
+    solves for a and returns f(z)*a
 
     Args:
         sess (tf.Session): Tensorflow session
         feed_dict (Dict): Dictionary of inputs
-        noise_type (str): Type of noise to clamp.
+        noise_type (str): Type of noise to clamp. ["uniform", "standard", "inverted"]
 
     Returns:
-        np.ndarray: Uniform noise
+        np.ndarray: Rescaled sigmoid activation
     """
-    if noise_type == "standard":
-        X = sess.run(
-            sess.graph.get_tensor_by_name(
-                "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:1"
-            ),
-            feed_dict,
-        )
-        sigmoid = 1 / (1 + np.exp(-X))
-    elif noise_type == "inverted":
-        sigmoid = invert_noise(sess, feed_dict)
-    elif noise_type == "uniform":
-        sigmoid = uniform_noise(sess, feed_dict)
-        sigmoid = np.ones_like(sigmoid)
-
-    # Compute the noise for all latent dimensions that produces a ND-Gaussian with variance equal
-    # to the variance of the original ND Gaussian, accouting for the weighting and floor terms.
-    # Assumes the Gaussian dimensions are independent.
-    weight = 0.99
-    floor = 0.01
-
-    a = weight**2 * np.sum(sigmoid**2, axis=1)
-    b = 2 * weight * floor * np.sum(sigmoid, axis=1)
-    c = sigmoid.size * (floor**2 - 1)
+    sigmoid = get_noise_fn(noise_type)(sess, feed_dict)
+    a = WEIGHT**2 * np.sum(sigmoid**2, axis=1)
+    b = 2 * WEIGHT * FLOOR * np.sum(sigmoid, axis=1)
+    c = sigmoid.size * (FLOOR**2 - 1)
     multiplier = (-b + np.sqrt(b**2 - 4 * a * c)) / (2 * a)
 
     return sigmoid * multiplier
 
 
-# np.std([sess.run(action_output, feed_dict)["latent_sample"] for _ in range(1000)], axis=0)
-# np.sum(np.std([sess.run(action_output, feed_dict)["latent_sample"] for _ in range(1000)], axis=0)**2)
+def get_noise_fn(noise_type: str) -> Callable:
+    """Get the noise function.
+
+    Args:
+        noise_type (str): Type of noise to clamp. ["uniform", "standard", "inverted"]
+
+    Raises:
+        ValueError: If the noise type is not recognized.
+
+    Returns:
+        Callable: Noise function
+    """
+    if noise_type == "standard":
+        return standard_noise
+    elif noise_type == "inverted":
+        return invert_noise
+    elif noise_type == "uniform":
+        return uniform_noise
+    else:
+        raise ValueError(
+            "Noise type must be one of ['standard', 'inverted', 'uniform']"
+        )
