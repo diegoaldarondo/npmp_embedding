@@ -108,6 +108,7 @@ def setup_job_params(params: Dict) -> List[Dict]:
                         "loop",
                         "test",
                         "action_noise",
+                        "variability_clamp",
                     ]:
                         job_params[field] = params[field]
                     total_params.append(job_params.copy())

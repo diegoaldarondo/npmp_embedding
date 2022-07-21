@@ -14,6 +14,7 @@ from loop import (
     ClosedLoopOverwriteLatents,
     uniform_noise,
     invert_noise,
+    clamp_noise,
 )
 from system import System
 
@@ -121,7 +122,7 @@ class LoopTest(TestCase):
             EXP.loop.feeder,
             EXP.loop.start_step,
             EXP.loop.video_length,
-            uniform_noise,
+            lambda sess, feed_dict: clamp_noise(sess, feed_dict, "standard"),
             action_noise=True,
         )
         EXP.run()

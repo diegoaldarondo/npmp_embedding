@@ -16,6 +16,7 @@ from loop import (
     ClosedLoopOverwriteLatents,
     uniform_noise,
     invert_noise,
+    clamp_noise,
 )
 
 tf.compat.v1.disable_eager_execution()
@@ -160,17 +161,7 @@ def parse():
 def npmp_embed_single_batch():
     """CLI Entrypoint to embed a single batch in a multi processing system.
 
-    Embeds a single batch in a batch array. Reads batch options from _batch_args.p.
-
-    Optional Args:
-        stac_params (Text): Path to stac params (.yaml).
-        offset_path (Text): Path to stac output with offset(.p).
-
-    Deleted Parameters:
-        ref_path (Text): Path to .hdf5 reference trajectories.
-        save_dir (Text): Folder in which to save .mat files.
-        dataset (Text): Name of dataset registered in dm_control.
-        model_dir (Text): Path to rodent tracking model.
+    Embeds a single batch in a batch array. Reads batch options from batch_file
     """
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -236,7 +227,12 @@ def npmp_embed_single_batch():
     elif batch_args["loop"] == "closed_loop_overwrite_latents":
 
         if batch_args["latent_noise"] == "uniform":
-            overwrite_fn = uniform_noise
+            if batch_args["variability_clamp"]:
+                overwrite_fn = lambda sess, feed_dict: clamp_noise(
+                    sess, feed_dict, noise_type="uniform"
+                )
+            else:
+                overwrite_fn = uniform_noise
             loop = ClosedLoopOverwriteLatents(
                 system.environment,
                 feeder,
@@ -246,6 +242,12 @@ def npmp_embed_single_batch():
                 action_noise=batch_args["action_noise"],
             )
         elif batch_args["latent_noise"] == "inverted":
+            if batch_args["variability_clamp"]:
+                overwrite_fn = lambda sess, feed_dict: clamp_noise(
+                    sess, feed_dict, noise_type="inverted"
+                )
+            else:
+                overwrite_fn = invert_noise
             overwrite_fn = invert_noise
             loop = ClosedLoopOverwriteLatents(
                 system.environment,
@@ -255,15 +257,29 @@ def npmp_embed_single_batch():
                 overwrite_fn,
                 action_noise=batch_args["action_noise"],
             )
-        # Standard does not need to be overwritten
         elif batch_args["latent_noise"] == "standard":
-            batch_args["loop"] = "closed"
-            loop = ClosedLoop(
-                system.environment,
-                feeder,
-                batch_args["start_step"],
-                batch_args["video_length"],
-                action_noise=batch_args["action_noise"],
-            )
+            if batch_args["variability_clamp"]:
+                overwrite_fn = lambda sess, feed_dict: clamp_noise(
+                    sess, feed_dict, noise_type="standard"
+                )
+                loop = ClosedLoopOverwriteLatents(
+                    system.environment,
+                    feeder,
+                    batch_args["start_step"],
+                    batch_args["video_length"],
+                    overwrite_fn,
+                    action_noise=batch_args["action_noise"],
+                )
+            # Standard does not need to be overwritten when not clamping
+            else:
+                overwrite_fn = invert_noise
+                batch_args["loop"] = "closed"
+                loop = ClosedLoop(
+                    system.environment,
+                    feeder,
+                    batch_args["start_step"],
+                    batch_args["video_length"],
+                    action_noise=batch_args["action_noise"],
+                )
     exp = Experiment(system, observer, loop)
     exp.run()

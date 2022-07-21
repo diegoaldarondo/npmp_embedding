@@ -34,3 +34,5 @@ unfinished_only: False
 noise_gain: 5.0
 
 action_noise: True
+
+variability_clamp: True

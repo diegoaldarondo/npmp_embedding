@@ -18,19 +18,22 @@ project_folders:
 ref_path: "npmp_preprocessing/total.hdf5"
 stac_params: "stac_params/params.yaml"
 offset_path: "stac/offset.p"
-save_dir: "npmp"
+save_dir: "npmp/action_noise"
 is_lstm: 
   # - True
+  # - False
   - False
 
 is_torque_actuators: 
+  # - True
   # - True
   - True
 
 # Run for all of these models.
 model_dirs: 
   # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_2"
-  - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2"
+  # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2"
+  - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_2"
 
 test: False
 
@@ -39,7 +42,6 @@ latent_noise:
   - "uniform"
   - "inverted"
   
-
 video_length: 2500
 
 loop: "closed_loop_overwrite_latents"
@@ -55,3 +57,5 @@ noise_gain:
   - 16.0
 
 action_noise: True
+
+variability_clamp: False
