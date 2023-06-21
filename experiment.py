@@ -222,7 +222,7 @@ def npmp_embed_single_batch():
                 sess, feed_dict, noise_type=batch_args["latent_noise"]
             )
         else:
-            overwrite_fn = loop.get_noise_overwrite_fn(batch_args["latent_noise"])
+            overwrite_fn = loop.get_noise_fn(batch_args["latent_noise"])
         looper = loop.ClosedLoopOverwriteLatents(
             system.environment,
             feeder,
