@@ -7,8 +7,54 @@ import yaml
 import argparse
 from typing import Text, List, Dict, Tuple, Union
 import time
+import subprocess
 
 N_PROJECT_FOLDERS_SIMULTANEOUSLY = 1
+
+EMBED_SCRIPT = (
+    lambda n_array, batch_file: f"""#!/bin/bash
+#SBATCH --array=0-{n_array}
+#SBATCH --job-name=embedNPMP
+#SBATCH --mem=12000
+#SBATCH -t 0-03:00
+#SBATCH -N 1
+#SBATCH -c 2
+#SBATCH -p olveczky,shared,cox,serial_requeue
+#SBATCH --exclude=holy2c18111
+#SBATCH --constraint="intel&avx2"
+#SBATCH --output=/dev/null 
+#SBATCH --error=/dev/null
+source /n/home02/daldarondo/LabDir/Diego/bin/.customcommands.sh
+setup_mujoco210_3.7
+npmp_embed_single_batch '{batch_file}'
+"""
+)
+
+MERGE_SCRIPT = (
+    lambda out_folder, job_id: f"""#!/bin/bash
+#SBATCH --job-name=mergeNPMP
+#SBATCH --dependency=afterok:{job_id}
+#SBATCH --mem=120000
+#SBATCH -t 0-01:00
+#SBATCH -N 1
+#SBATCH -c 1
+# # SBATCH --output=/dev/null 
+# # SBATCH --error=/dev/null
+#SBATCH -p olveczky,shared,cox
+#SBATCH --exclude=holy2c18111 #seasmicro25 was removed
+#SBATCH --constraint="intel&avx2"
+set -e
+source /n/home02/daldarondo/LabDir/Diego/bin/.customcommands.sh
+setup_mujoco210_3.7
+merge-embed '{out_folder}'
+"""
+)
+
+
+def slurm_submit(script: Text):
+    output = subprocess.check_output("sbatch", input=script, universal_newlines=True)
+    job_id = output.strip().split()[-1]
+    return job_id
 
 
 class ParallelNpmpDispatcher:
@@ -87,21 +133,23 @@ class ParallelNpmpDispatcher:
         """Submit the job to the cluster."""
         if len(self.batch_args) >= 1:
             if not self.params["test"]:
-                cmd1 = '"sbatch --wait --array=0-%d multi_job_embed.sh %s"' % (
-                    len(self.batch_args) - 1,
-                    self.params["batch_file"],
+                script = EMBED_SCRIPT(
+                    len(self.batch_args) - 1, self.params["batch_file"]
                 )
             else:
-                cmd1 = '"sbatch --wait --array=215 multi_job_embed.sh %s"' % (
-                    self.params["batch_file"],
-                )
+                script = EMBED_SCRIPT(1, self.params["batch_file"])
 
-            out_folder = os.path.join(self.params["save_dir"], "logs")
-            cmd2 = '"merge-embed %s"' % (out_folder)
-            cmd = "sbatch --wait embed.sh " + cmd1 + " " + cmd2
-            print(cmd, flush=True)
-            os.system(cmd)
+            job_id = slurm_submit(script)
+            script2 = MERGE_SCRIPT(
+                os.path.join(self.params["save_dir"], "logs"), job_id
+            )
+            job_id = slurm_submit(script2)
         else:
+            script = MERGE_SCRIPT(os.path.join(self.params["save_dir"], "logs"), 1)
+            script.replace(
+                "#SBATCH --dependency=afterok:1", "# #SBATCH --dependency=afterok:1"
+            )
+            job_id = slurm_submit(script)
             print("No unfinished chunks", flush=True)
 
     def save_batch_args(self):
@@ -257,6 +305,8 @@ def setup_job_params(params):
             )
             job_params["latent_noise"] = params["latent_noise"]
             job_params["noise_gain"] = params["noise_gain"]
+            job_params["action_noise"] = params["action_noise"]
+            job_params["variability_clamp"] = params["variability_clamp"]
             job_params["unfinished_only"] = params["unfinished_only"]
             job_params["video_length"] = params["video_length"]
             job_params["loop"] = params["loop"]
