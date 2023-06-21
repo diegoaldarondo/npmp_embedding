@@ -29,7 +29,7 @@ video_length: 2500
 
 # loop: "closed_loop_overwrite_latents"
 
-loop: "closed_loop"
+loop: "closed"
 
 unfinished_only: False
 
