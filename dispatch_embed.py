@@ -76,17 +76,8 @@ class ParallelNpmpDispatcher:
         Args:
             params (Dict): Parameters dictionary
         """
-        # self.ref_path = ref_path
-        # self.save_dir = save_dir
-        # self.dataset = dataset
-        # self.model_dir = model_dir
-        # self.video_length = video_length
-        # self.stac_params = stac_params
-        # self.offset_path = offset_path
-        # self.batch_file = batch_file
         self.params = params
         self.clip_end = self.get_clip_end()
-        # self.test = test
 
         self.start_steps = np.arange(0, self.clip_end, self.params["video_length"])
         self.end_steps = self.start_steps + self.params["video_length"]
@@ -194,7 +185,6 @@ def dispatch_npmp_embed():
         default="/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_no_noise",
         help="path to rodent tracking model.",
     )
-    # "/n/holylfs02/LABS/olveczky_lab/Diego/code/dm/__npmp_embedding/rodent_tracking_model_16212280_3_no_noise",
     parser.add_argument(
         "--stac-params",
         dest="stac_params",
