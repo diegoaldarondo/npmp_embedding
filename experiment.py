@@ -150,23 +150,14 @@ def parse():
     return parser.parse_args()
 
 
-def npmp_embed_single_batch():
-    """CLI Entrypoint to embed a single batch in a multi processing system.
+def npmp_embed_single_batch(batch_file: str):
+    """Run a single batch of experiments.
 
-    Embeds a single batch in a batch array. Reads batch options from batch_file
+    Args:
+        batch_file (str): Path to batch .p file.
     """
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "batch_file",
-        help="Path to batch arguments file.",
-    )
-    args = parser.parse_args()
-
     # Load in parameters to modify
-    with open(args.batch_file, "rb") as file:
+    with open(batch_file, "rb") as file:
         batch_args = pickle.load(file)
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
     batch_args = batch_args[task_id]
