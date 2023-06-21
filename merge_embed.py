@@ -22,28 +22,13 @@ def get_files(folder: Text) -> List:
     return [os.path.join(folder, files[i]) for i in order]
 
 
-def merge_files():
-    """CLI entrypoint for merging embedding files."""
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        dest="folder",
-        help="Path to npmp output folder.",
-    )
-    parser.add_argument(
-        "--delete-chunks",
-        dest="delete_chunks",
-        default=False,
-        help="Whether or not to delete chunks",
-    )
-    args = parser.parse_args()
-    merge(args.folder, args.delete_chunks)
-
-
 def merge(folder, delete_chunks=False):
-    # Load the files
+    """Merge embedding files.
+
+    Args:
+        folder (str): Path to npmp output folder.
+        delete_chunks (bool, optional): Whether or not to delete chunks. Defaults to False.
+    """
     log_files = get_files(folder)
     data = load_files(log_files)
     save_merge_file(folder, data)
