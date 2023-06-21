@@ -114,22 +114,25 @@ class BoutGenerator:
             del bout_centers[n_bout]
 
         bout_indices = [
-            np.arange(
-                c - np.round(duration / 2), c + np.round(duration / 2)
-            ).astype("int")
+            np.arange(c - np.round(duration / 2), c + np.round(duration / 2)).astype(
+                "int"
+            )
             for c in bout_centers
         ]
 
-        # Set some defaults for rendering. 
+        # Set some defaults for rendering.
         self.stac["qpos"] = median_filter(self.stac["qpos"], (5, 1))
-        tail_ids = np.argwhere(["walker/vertebra_C" in n for n in self.stac["names_qpos"]])[:]
+        tail_ids = np.argwhere(
+            ["walker/vertebra_C" in n for n in self.stac["names_qpos"]]
+        )[:]
         tail_ids = [t[0] for t in tail_ids]
-        self.stac["qpos"][:, tail_ids] = 0.
+        self.stac["qpos"][:, tail_ids] = 0.0
         tail_extend_ids = [25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47]
-        self.stac["qpos"][:, tail_extend_ids] += .3
-        mandible_id = np.argwhere([n == "walker/mandible" for n in self.stac["names_qpos"]])[0][0]
-        self.stac["qpos"][:, mandible_id] = self.params["_MANDIBLE_POS"]
-
+        self.stac["qpos"][:, tail_extend_ids] += 0.3
+        mandible_id = np.argwhere(
+            [n == "walker/mandible" for n in self.stac["names_qpos"]]
+        )[0][0]
+        self.stac["qpos"][:, mandible_id] = self.params["MANDIBLE_POS"]
 
         # Get the kinematic information for the bout
         bouts = []
@@ -143,6 +146,8 @@ class BoutGenerator:
             bout["names_qpos"] = self.stac["names_qpos"].copy()
             bout["offsets"] = self.stac["offsets"].copy()
             bout["description"] = description
+            bout["ids"] = ids
+            bout["stac_path"] = self.stac_path
             bout["_ARENA_DIAMETER"] = self.params["_ARENA_DIAMETER"]
             bout["_ARENA_CENTER"] = self.params["_ARENA_CENTER"]
             bout["param_path"] = self.param_path
@@ -227,9 +232,7 @@ class TrainingSetGenerator:
             """
             speeds = [
                 np.nanmean(
-                    np.sqrt(
-                        np.sum(np.diff(b["qpos"][:, 1:3], axis=0) ** 2, axis=1)
-                    )
+                    np.sqrt(np.sum(np.diff(b["qpos"][:, 1:3], axis=0) ** 2, axis=1))
                 )
                 for b in bouts
             ]
@@ -239,9 +242,9 @@ class TrainingSetGenerator:
         candidates = self.get_candidates(bout_groups, descriptions)
 
         # For the walking bouts, order them by speed.
-        walk_group = np.argwhere(["Walk" in d for d in descriptions])[0][
-            0
-        ].astype("int")
+        walk_group = np.argwhere(["Walk" in d for d in descriptions])[0][0].astype(
+            "int"
+        )
         candidates[walk_group] = sort_by_com_speed(candidates[walk_group])
 
         # Get an assortment of n_bout examples for each type.
@@ -256,9 +259,7 @@ class TrainingSetGenerator:
                 training_set["FastWalk"] = fast_walks
 
                 # Get random remaining walks
-                training_set["Walk"] = random.sample(
-                    can[n_bout:].copy(), n_bout
-                )
+                training_set["Walk"] = random.sample(can[n_bout:].copy(), n_bout)
             else:
                 # Get random remaining behaviors
                 training_set[des] = random.sample(can.copy(), n_bout)
@@ -284,9 +285,7 @@ class TrainingSetGenerator:
                 kp_data = b["kp_data"]
                 offsets = b["offsets"]
                 n_frames = q.shape[0]
-                save_path = os.path.join(
-                    save_folder, "%s_%d.mp4" % (des, n_bout)
-                )
+                save_path = os.path.join(save_folder, "%s_%d.mp4" % (des, n_bout))
                 setup_visualization(
                     b["param_path"],
                     q,
@@ -311,9 +310,7 @@ class TrainingSetGenerator:
         # Save each bout
         for des, bouts in training_set.items():
             for n_bout, b in enumerate(bouts):
-                save_path = os.path.join(
-                    save_folder, "%s_%d.p" % (des, n_bout)
-                )
+                save_path = os.path.join(save_folder, "%s_%d.p" % (des, n_bout))
                 with open(save_path, "wb") as f:
                     pickle.dump(b, f, protocol=2)
 
@@ -348,12 +345,14 @@ def render_training_set_single_batch():
 if __name__ == "__main__":
 
     # Pathing params
-    beh_folder = "/n/holylfs02/LABS/olveczky_lab/Diego/data/dannce_ephys/art/behavioral_clusters"
+    beh_folder = (
+        "/n/holylfs02/LABS/olveczky_lab/Diego/data/dannce_ephys/art/behavioral_clusters"
+    )
     animal_folder = (
         "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/art"
     )
-    save_data_folder = "/n/holylfs02/LABS/olveczky_lab/Diego/data/dannce_ephys/art/CoMic_training_set/snips"
-    save_video_folder = "/n/holylfs02/LABS/olveczky_lab/Diego/data/dannce_ephys/art/CoMic_training_set/videos"
+    save_data_folder = "/n/holylfs02/LABS/olveczky_lab/Diego/data/dannce_ephys/art/CoMic_training_set/snips2"
+    save_video_folder = "/n/holylfs02/LABS/olveczky_lab/Diego/data/dannce_ephys/art/CoMic_training_set/videos2"
 
     # Make the bout groups
     n_bouts = [200, 200, 200, 200, 200]
@@ -374,12 +373,9 @@ if __name__ == "__main__":
     project_folders = project_folders[1:43].tolist()
     project_folders = [os.path.join(animal_folder, p) for p in project_folders]
     del project_folders[10]
-    stac_paths = [
-        os.path.join(pf, "stac", "total.p") for pf in project_folders
-    ]
+    stac_paths = [os.path.join(pf, "stac", "total.p") for pf in project_folders]
     param_paths = [
-        os.path.join(pf, "stac_params", "params.yaml")
-        for pf in project_folders
+        os.path.join(pf, "stac_params", "params.yaml") for pf in project_folders
     ]
 
     # stac_paths = stac_paths[:2]
@@ -398,13 +394,13 @@ if __name__ == "__main__":
     # Single job rendering.
     # tsg.render_training_set(training_set, save_video_folder)
 
-    # Multi job rendering
-    n_data_files = len(os.listdir(save_data_folder))
-    command = "sbatch --array=0-%d render_training_set_videos.sh %s %s" % (
-        n_data_files - 1,
-        save_data_folder,
-        save_video_folder,
-    )
+    # # Multi job rendering
+    # n_data_files = len(os.listdir(save_data_folder))
+    # command = "sbatch --array=0-%d render_training_set_videos.sh %s %s" % (
+    # n_data_files - 1,
+    # save_data_folder,
+    # save_video_folder,
+    # )
 
     # For testing
     # command = "sbatch --array=0-%d render_training_set_videos.sh %s %s" % (
@@ -413,4 +409,4 @@ if __name__ == "__main__":
     #     save_video_folder,
     # )
 
-    os.system(command)
+    # os.system(command)
