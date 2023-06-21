@@ -23,9 +23,8 @@ EMBED_SCRIPT = (
 #SBATCH --constraint="intel&avx2"
 #SBATCH --output=/dev/null 
 #SBATCH --error=/dev/null
-data_folder=/n/holylabs/LABS/olveczky_lab/holylfs02
-img=/n/holylabs/LABS/olveczky_lab/Lab/singularity/mujoco210.sif
-singularity exec -B $data_folder $img python -c "import experiment; experiment.npmp_embed_single_batch('{batch_file}')"
+source ~/.bashrc
+mj_sim python -c "import experiment; experiment.npmp_embed_single_batch('{batch_file}')"
 """
 )
 
@@ -42,10 +41,8 @@ MERGE_SCRIPT = (
 #SBATCH -p olveczky,shared,cox
 #SBATCH --exclude=holy2c18111 #seasmicro25 was removed
 #SBATCH --constraint="intel&avx2"
-set -e
-data_folder=/n/holylabs/LABS/olveczky_lab/holylfs02
-img=/n/holylabs/LABS/olveczky_lab/Lab/singularity/mujoco210.sif
-singularity exec -B $data_folder $img python -c "import merge_embed; merge_embed.merge('{out_folder}')"
+source ~/.bashrc
+mj_sim python -c "import merge_embed; merge_embed.merge('{out_folder}')"
 """
 )
 
