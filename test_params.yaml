@@ -1,7 +1,7 @@
 # Run for all of these folders.
 project_folders:
-    # - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/art/2020_12_21_2" 
-    - "/n/holylfs02/LABS/olveczky_lab/Everyone/dannce_rig/dannce_ephys/duke/2022_02_16_1" 
+    # - "/n/holylabs/LABS/olveckzy_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_21_2" 
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_16_1" 
 ref_path: "npmp_preprocessing/total.hdf5"
 stac_params: "stac_params/params.yaml"
 offset_path: "stac/offset.p"
@@ -16,8 +16,8 @@ is_torque_actuators:
 
 # Run for all of these models.
 model_dirs:
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2"
-    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24186410_2"
 
 latent_noise: "inverted"
 
@@ -27,7 +27,9 @@ test: True
 
 video_length: 2500
 
-loop: "closed_loop_overwrite_latents"
+# loop: "closed_loop_overwrite_latents"
+
+loop: "closed_loop"
 
 unfinished_only: False
 
