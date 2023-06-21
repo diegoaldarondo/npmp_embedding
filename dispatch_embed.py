@@ -24,7 +24,7 @@ EMBED_SCRIPT = (
 #SBATCH --output=/dev/null 
 #SBATCH --error=/dev/null
 source ~/.bashrc
-mj_sim python -c "import experiment; experiment.npmp_embed_single_batch('{batch_file}')"
+mj_sing python -c "import experiment; experiment.npmp_embed_single_batch('{batch_file}')"
 """
 )
 
@@ -42,7 +42,7 @@ MERGE_SCRIPT = (
 #SBATCH --exclude=holy2c18111 #seasmicro25 was removed
 #SBATCH --constraint="intel&avx2"
 source ~/.bashrc
-mj_sim python -c "import merge_embed; merge_embed.merge('{out_folder}')"
+mj_sing python -c "import merge_embed; merge_embed.merge('{out_folder}')"
 """
 )
 
