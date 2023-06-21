@@ -6,7 +6,6 @@ import numpy as np
 import yaml
 import argparse
 from typing import Text, List, Dict, Tuple, Union
-import time
 import subprocess
 
 N_PROJECT_FOLDERS_SIMULTANEOUSLY = 1
@@ -338,12 +337,23 @@ def main():
     """
     param_path = parse()
     params = build_params(param_path)
-    cmd = "sbatch --array=0-%d%%20 submit_projects.sh %s" % (
-        len(params) - 1,
-        param_path,
-    )
-    # cmd = "sbatch --array=0-%d%%%d submit_projects.sh %s" % (len(params) - 1, N_PROJECT_FOLDERS_SIMULTANEOUSLY, param_path)
-    os.system(cmd)
+    script = f"""#!/bin/bash
+#SBATCH --job-name=submit_projects
+# Job name
+#SBATCH --mem=2000
+# Job memory request
+#SBATCH -t 1-00:00
+# Time limit hrs:min:sec
+#SBATCH --array=0-{len(params) - 1}%%20
+#SBATCH -N 1
+#SBATCH -c 1
+#SBATCH -p olveczky,shared
+setup_miniconda
+source activate dispatch_embed
+python -c "import dispatch_embed; dispatch_embed.submit_project('{param_path}')"
+wait
+"""
+    slurm_submit(script)
 
 
 def submit_project(param_path: Text):
