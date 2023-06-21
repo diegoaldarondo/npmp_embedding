@@ -50,11 +50,11 @@ def change_exp_model(exp):
     if is_mlp:
         exp.system.model_dir = params[1]["model_dir"]
         exp.observer.setup_model_ovservables(observer.LSTM_NETWORK_FEATURES)
-        exp.loop.feeder = LstmFeeder()
+        exp.looper.feeder = LstmFeeder()
     else:
         exp.system.model_dir = params[0]["model_dir"]
         exp.observer.setup_model_ovservables(observer.MLP_NETWORK_FEATURES)
-        exp.loop.feeder = MlpFeeder()
+        exp.looper.feeder = MlpFeeder()
     return exp
 
 
@@ -102,11 +102,11 @@ EXP = set_up_experiment(params[0])
 
 class LoopTest(TestCase):
     def loop(self, loop_fn, exp):
-        exp.loop = loop_fn(
+        exp.looper = loop_fn(
             exp.system.environment,
-            exp.loop.feeder,
-            exp.loop.start_step,
-            exp.loop.video_length,
+            exp.looper.feeder,
+            exp.looper.start_step,
+            exp.looper.video_length,
         )
         exp.run()
 
@@ -117,11 +117,11 @@ class LoopTest(TestCase):
     #     self.loop(ClosedLoop, EXP)
 
     def test_closed_loop_overwrite_latents(self):
-        EXP.loop = ClosedLoopOverwriteLatents(
+        EXP.looper = ClosedLoopOverwriteLatents(
             EXP.system.environment,
-            EXP.loop.feeder,
-            EXP.loop.start_step,
-            EXP.loop.video_length,
+            EXP.looper.feeder,
+            EXP.looper.start_step,
+            EXP.looper.video_length,
             lambda sess, feed_dict: clamp_noise(sess, feed_dict, "standard"),
             action_noise=True,
         )
