@@ -77,7 +77,7 @@ def save_merge_file(folder: Text, data: Dict):
     with h5py.File(os.path.join(folder, "data.hdf5"), "w") as save_file:
         for field, v in data.items():
             if field != "action_names":
-                save_file.create_dataset(field, data=v)
+                save_file.create_dataset(field, data=v, compression="gzip")
             else:
                 names = v[: data["action_mean"].shape[0]]
                 names = [name.split("walker/")[-1].strip() for name in names]
