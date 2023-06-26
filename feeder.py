@@ -5,18 +5,32 @@ from typing import Dict, List
 OBSERVATIONS = [
     "walker/actuator_activation",
     "walker/appendages_pos",
+    "walker/body_height",
+    "walker/end_effectors_pos",
     "walker/joints_pos",
     "walker/joints_vel",
     "walker/sensors_accelerometer",
+    "walker/sensors_force",
     "walker/sensors_gyro",
-    "walker/sensors_touch",
     "walker/sensors_torque",
+    "walker/sensors_touch",
     "walker/sensors_velocimeter",
     "walker/tendons_pos",
     "walker/tendons_vel",
     "walker/world_zaxis",
-    "walker/reference_rel_bodies_pos_local",
+    "walker/reference_rel_joints",
+    "walker/reference_rel_bodies_pos_global",
     "walker/reference_rel_bodies_quats",
+    "walker/reference_rel_bodies_pos_local",
+    "walker/reference_ego_bodies_quats",
+    "walker/reference_rel_root_quat",
+    "walker/reference_rel_root_pos_local",
+    "walker/reference_appendages_pos",
+    "walker/clip_id",
+    "walker/velocimeter_control",
+    "walker/gyro_control",
+    "walker/joints_vel_control",
+    "walker/time_in_clip",
 ]
 
 MLP_INPUTS = {
@@ -38,8 +52,19 @@ MLP_INPUTS = {
     "walker/tendons_pos": "walker/tendons_pos_1:0",
     "walker/tendons_vel": "walker/tendons_vel_1:0",
     "walker/world_zaxis": "walker/world_zaxis_1:0",
-    "walker/reference_rel_bodies_pos_local": "walker/reference_rel_bodies_pos_local_1:0",
+    "walker/reference_rel_joints": "walker/reference_rel_joints_1:0",
+    "walker/reference_rel_bodies_pos_global": "walker/reference_rel_bodies_pos_global_1:0",
     "walker/reference_rel_bodies_quats": "walker/reference_rel_bodies_quats_1:0",
+    "walker/reference_rel_bodies_pos_local": "walker/reference_rel_bodies_pos_local_1:0",
+    "walker/reference_ego_bodies_quats": "walker/reference_ego_bodies_quats_1:0",
+    "walker/reference_rel_root_quat": "walker/reference_rel_root_quat_1:0",
+    "walker/reference_rel_root_pos_local": "walker/reference_rel_root_pos_local_1:0",
+    "walker/reference_appendages_pos": "walker/reference_appendages_pos_1:0",
+    "walker/clip_id": "walker/clip_id_1:0",
+    "walker/velocimeter_control": "walker/velocimeter_control_1:0",
+    "walker/gyro_control": "walker/gyro_control_1:0",
+    "walker/joints_vel_control": "walker/joints_vel_control_1:0",
+    "walker/time_in_clip": "walker/time_in_clip_1:0",
     "dummy_core_state": "state_9:0",
     "dummy_target_core_state": "state_10:0",
     "dummy_policy_state_level_1": "state_11:0",
@@ -48,6 +73,7 @@ MLP_INPUTS = {
     "dummy_target_policy_state_level_2": "state_15:0",
     "latent": "state_13:0",
     "target_latent": "state_16:0",
+    "action": "state_17:0",
 }
 
 LSTM_INPUTS = {
@@ -69,8 +95,20 @@ LSTM_INPUTS = {
     "walker/tendons_pos": "walker/tendons_pos_1:0",
     "walker/tendons_vel": "walker/tendons_vel_1:0",
     "walker/world_zaxis": "walker/world_zaxis_1:0",
-    "walker/reference_rel_bodies_pos_local": "walker/reference_rel_bodies_pos_local_1:0",
+    "walker/reference_rel_joints": "walker/reference_rel_joints_1:0",
+    "walker/reference_rel_bodies_pos_global": "walker/reference_rel_bodies_pos_global_1:0",
     "walker/reference_rel_bodies_quats": "walker/reference_rel_bodies_quats_1:0",
+    "walker/reference_rel_bodies_pos_local": "walker/reference_rel_bodies_pos_local_1:0",
+    "walker/reference_ego_bodies_quats": "walker/reference_ego_bodies_quats_1:0",
+    "walker/reference_rel_root_quat": "walker/reference_rel_root_quat_1:0",
+    "walker/reference_rel_root_pos_local": "walker/reference_rel_root_pos_local_1:0",
+    "walker/reference_appendages_pos": "walker/reference_appendages_pos_1:0",
+    "walker/clip_id": "walker/clip_id_1:0",
+    "walker/velocimeter_control": "walker/velocimeter_control_1:0",
+    "walker/gyro_control": "walker/gyro_control_1:0",
+    "walker/joints_vel_control": "walker/joints_vel_control_1:0",
+    "walker/time_in_clip": "walker/time_in_clip_1:0",
+    # "action": "state_17:0",
     "lstm_policy_hidden_level_1": "state_22:0",
     "lstm_policy_cell_level_1": "state_23:0",
     "lstm_policy_hidden_level_2": "state_24:0",
@@ -87,6 +125,10 @@ MLP_ACTIONS = {
     "dummy_policy_state_level_2": "agent_0/step_1/reset_core_1/Select_1:0",
     "dummy_target_policy_state_level_1": "agent_0/step_1/reset_core_1_1/Select:0",
     "dummy_target_policy_state_level_2": "agent_0/step_1/reset_core_1_1/Select_1:0",
+    "encoder_0": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso_encoder/model/mlp/Tanh:0",
+    "encoder_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso_encoder/model/mlp/Tanh_1:0",
+    "decoder_0": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/model/mlp/Tanh:0",
+    "decoder_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/model/mlp/Tanh_1:0",
     "latent": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/add_2:0",
     "latent_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/split:0",
     "target_latent": "agent_0/step_1/reset_core_1_1/MultiLevelSamplerWithARPrior/add_2:0",
@@ -100,6 +142,8 @@ MLP_ACTIONS = {
 LSTM_ACTIONS = {
     "action": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag/sample/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_chain_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift_of_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_scale_matvec_linear_operator/forward/agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head_MultivariateNormalDiag_shift/forward/add:0",
     "action_mean": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_head/Tanh:0",
+    "encoder_0": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso_encoder/model/mlp/Tanh:0",
+    "encoder_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso_encoder/model/mlp/Tanh_1:0",
     "lstm_policy_hidden_level_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm/mul_2:0",
     "lstm_policy_cell_level_1": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm/add_2:0",
     "lstm_policy_hidden_level_2": "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/actor_torso/deep_rnn/lstm_1/mul_2:0",
@@ -121,6 +165,7 @@ MLP_STATES = [
     "dummy_policy_state_level_2",
     "dummy_target_policy_state_level_1",
     "dummy_target_policy_state_level_2",
+    "action",
 ]
 
 LSTM_STATES = [
@@ -153,6 +198,7 @@ class Feeder:
         for obs in self.observations:
             feed_dict[self.graph_inputs[obs]] = timestep.observation[obs]
         for state in self.states:
+            # TODO Check if there is a bug with setting the obs to 0 in the first step
             if action_output_np is None:
                 feed_dict[self.graph_inputs[state]] = np.zeros(
                     self.graph_inputs[state].shape

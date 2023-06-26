@@ -8,21 +8,51 @@ from scipy.io import savemat
 import os
 from typing import Dict, List, Text, Tuple
 
+# OBSERVATIONS = [
+#     "walker/actuator_activation",
+#     "walker/appendages_pos",
+#     "walker/joints_pos",
+#     "walker/joints_vel",
+#     "walker/sensors_accelerometer",
+#     "walker/sensors_gyro",
+#     "walker/sensors_touch",
+#     "walker/sensors_torque",
+#     "walker/sensors_velocimeter",
+#     "walker/tendons_pos",
+#     "walker/tendons_vel",
+#     "walker/world_zaxis",
+#     "walker/reference_rel_bodies_pos_local",
+#     "walker/reference_rel_bodies_quats",
+# ]
 OBSERVATIONS = [
     "walker/actuator_activation",
     "walker/appendages_pos",
+    "walker/body_height",
+    "walker/end_effectors_pos",
     "walker/joints_pos",
     "walker/joints_vel",
     "walker/sensors_accelerometer",
+    "walker/sensors_force",
     "walker/sensors_gyro",
-    "walker/sensors_touch",
     "walker/sensors_torque",
+    "walker/sensors_touch",
     "walker/sensors_velocimeter",
     "walker/tendons_pos",
     "walker/tendons_vel",
     "walker/world_zaxis",
-    "walker/reference_rel_bodies_pos_local",
+    "walker/reference_rel_joints",
+    "walker/reference_rel_bodies_pos_global",
     "walker/reference_rel_bodies_quats",
+    "walker/reference_rel_bodies_pos_local",
+    "walker/reference_ego_bodies_quats",
+    "walker/reference_rel_root_quat",
+    "walker/reference_rel_root_pos_local",
+    "walker/reference_appendages_pos",
+    "walker/clip_id",
+    "walker/velocimeter_control",
+    "walker/gyro_control",
+    "walker/joints_vel_control",
+    "walker/time_in_clip",
 ]
 
 MODEL_FEATURES = [
@@ -40,6 +70,10 @@ MLP_NETWORK_FEATURES = [
     "level_1_loc",
     "latent_sample",
     "action_mean",
+    "encoder_0",
+    "encoder_1",
+    "decoder_0",
+    "decoder_1",
     # "jacobian_latent_mean",
 ]
 
@@ -52,6 +86,8 @@ LSTM_NETWORK_FEATURES = [
     "lstm_policy_hidden_level_2",
     "lstm_policy_cell_level_2",
     "action_mean",
+    "encoder_0",
+    "encoder_1",
 ]
 
 FPS = 50
@@ -170,7 +206,9 @@ class Observer:
             record_physical_features (bool, optional): If true, record physical features.
         """
         for feature in self.network_features:
-            self.data[feature].append(action_output_np[feature].copy())
+            self.data[feature].append(
+                action_output_np[feature].copy().astype(np.float16)
+            )
 
         # Record the reward
         if timestep.reward is None:
@@ -181,10 +219,12 @@ class Observer:
         # Record model features.
         if record_physical_features:
             self.data["walker_body_sites"].append(
-                np.copy(self.env.physics.bind(self.env.task._walker.body_sites).xpos[:])
+                np.copy(
+                    self.env.physics.bind(self.env.task._walker.body_sites).xpos[:]
+                ).astype(np.float16)
             )
             self.data["qfrc"].append(
-                np.copy(self.env.physics.named.data.qfrc_actuator[:])
+                np.copy(self.env.physics.named.data.qfrc_actuator[:]).astype(np.float16)
             )
             self.data["qpos"].append(np.copy(self.env.physics.named.data.qpos[:]))
             self.data["qvel"].append(np.copy(self.env.physics.named.data.qvel[:]))
@@ -192,7 +232,7 @@ class Observer:
             self.data["xpos"].append(np.copy(self.env.physics.named.data.xpos[:]))
 
         for obs in self.network_observations:
-            self.data[obs].append(timestep.observation[obs])
+            self.data[obs].append(timestep.observation[obs].astype(np.float16))
         self.data["reset"].append(timestep.last())
 
     def grab_frame(self):
@@ -265,7 +305,7 @@ class Observer:
 
         action_names = self.env.physics.named.data.act.axes.row.names
         for k, v in self.data.items():
-            self.data[k] = np.array(v)
+            self.data[k] = np.array(v, dtype=np.float16)
         self.data["action_names"] = action_names
         savemat(save_path, self.data)
 

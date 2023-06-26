@@ -167,9 +167,7 @@ class ClosedLoopMultiSample(ClosedLoop):
 
                 # Resample n_samples times
                 for n_sample in range(self.n_samples):
-
                     # Get all of the data
-
                     action_output_np = sess.run(action_output, feed_dict)
                     if n_sample == 0:
                         # Make observations
