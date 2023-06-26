@@ -39,7 +39,7 @@ def set_up_experiment(params):
         obs = observer.MlpObserver(system.environment, params["save_dir"])
         feeder = MlpFeeder()
     loop = ClosedLoop(
-        system.environment, feeder, start_step=0, video_length=2500, action_noise=True
+        system.environment, feeder, start_step=0, video_length=2500, action_noise=False
     )
     # loop = ClosedLoopOverwriteLatents(system.environment, feeder, start_step=0, video_length=2500)
     return experiment.Experiment(system, obs, loop)
@@ -113,19 +113,19 @@ class LoopTest(TestCase):
     # def test_open(self):
     #     self.loop(OpenLoop, EXP)
 
-    # def test_closed(self):
-    #     self.loop(ClosedLoop, EXP)
+    def test_closed(self):
+        self.loop(ClosedLoop, EXP)
 
-    def test_closed_loop_overwrite_latents(self):
-        EXP.looper = ClosedLoopOverwriteLatents(
-            EXP.system.environment,
-            EXP.looper.feeder,
-            EXP.looper.start_step,
-            EXP.looper.video_length,
-            lambda sess, feed_dict: clamp_noise(sess, feed_dict, "standard"),
-            action_noise=True,
-        )
-        EXP.run()
+    # def test_closed_loop_overwrite_latents(self):
+    #     EXP.looper = ClosedLoopOverwriteLatents(
+    #         EXP.system.environment,
+    #         EXP.looper.feeder,
+    #         EXP.looper.start_step,
+    #         EXP.looper.video_length,
+    #         lambda sess, feed_dict: clamp_noise(sess, feed_dict, "standard"),
+    #         action_noise=True,
+    #     )
+    #     EXP.run()
 
     # def test_closed_multi_sample(self):
     #     self.loop(ClosedLoopMultiSample, EXP)
