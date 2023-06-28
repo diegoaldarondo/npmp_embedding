@@ -127,28 +127,25 @@ class ParallelNpmpDispatcher:
 
     def dispatch(self):
         """Submit the job to the cluster."""
-        if not os.path.exists(
-            os.path.join(self.params["save_dir"], "logs", "data.hdf5")
-        ):
-            if len(self.batch_args) >= 1:
-                if not self.params["test"]:
-                    script = EMBED_SCRIPT(
-                        len(self.batch_args) - 1, self.params["batch_file"]
-                    )
-                else:
-                    script = EMBED_SCRIPT(1, self.params["batch_file"])
-
-                job_id = slurm_submit(script)
-                script2 = MERGE_SCRIPT(
-                    os.path.join(self.params["save_dir"], "logs"), job_id
+        if len(self.batch_args) >= 1:
+            if not self.params["test"]:
+                script = EMBED_SCRIPT(
+                    len(self.batch_args) - 1, self.params["batch_file"]
                 )
-                job_id = slurm_submit(script2, wait=True)
             else:
-                script = MERGE_SCRIPT(os.path.join(self.params["save_dir"], "logs"), 1)
-                script.replace(
-                    "#SBATCH --dependency=afterok:1", "# #SBATCH --dependency=afterok:1"
-                )
-                job_id = slurm_submit(script)
+                script = EMBED_SCRIPT(1, self.params["batch_file"])
+
+            job_id = slurm_submit(script)
+            script2 = MERGE_SCRIPT(
+                os.path.join(self.params["save_dir"], "logs"), job_id
+            )
+            job_id = slurm_submit(script2, wait=True)
+        else:
+            script = MERGE_SCRIPT(os.path.join(self.params["save_dir"], "logs"), 1)
+            script.replace(
+                "#SBATCH --dependency=afterok:1", "# #SBATCH --dependency=afterok:1"
+            )
+            job_id = slurm_submit(script)
             print("No unfinished chunks", flush=True)
 
     def save_batch_args(self):
@@ -251,11 +248,11 @@ def build_params(param_path: Text) -> List[Dict]:
     """
     params = load_params(param_path)
     total_params = setup_job_params(params)
-    total_params = [
-        p
-        for p in total_params
-        if not os.path.exists(os.path.join(p["save_dir"], "logs", "data.hdf5"))
-    ]
+    # total_params = [
+    #     p
+    #     for p in total_params
+    #     if not os.path.exists(os.path.join(p["save_dir"], "logs", "data.hdf5"))
+    # ]
     return total_params
 
 
@@ -341,6 +338,9 @@ def main():
     """
     param_path = parse()
     params = build_params(param_path)
+    batch_args_file = os.path.splitext(param_path)[0] + "_batch_args.p"
+    with open(batch_args_file, "wb") as f:
+        pickle.dump(params, f)
     script = f"""#!/bin/bash
 #SBATCH --job-name=submit_projects
 # Job name
@@ -355,19 +355,20 @@ def main():
 source ~/.bashrc
 setup_miniconda
 source activate tracked_analysis
-python -c "import dispatch_embed; dispatch_embed.submit_project('{param_path}')"
+python -c "import dispatch_embed; dispatch_embed.submit_project('{batch_args_file}')"
 wait
 """
     slurm_submit(script)
 
 
-def submit_project(param_path: Text):
+def submit_project(batch_args_file: Text):
     """Submit jobs for a single run.
 
     Args:
-        param_path (Text): Path to the parameters .yaml file.
+        batch_args_file (Text): Path to the batch_args .p file.
     """
-    params = build_params(param_path)
+    with open(batch_args_file, "rb") as f:
+        params = pickle.load(f)
 
     # Only use params for the project folder specified by the task_id
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
