@@ -15,6 +15,7 @@ import os
 import argparse
 from scipy.io import loadmat
 from typing import Text, List, Tuple, Dict, Union
+import subprocess
 
 
 class NpmpPreprocessor:
@@ -48,7 +49,7 @@ class NpmpPreprocessor:
         dt: float = 0.02,
         adjust_z_offset: float = 0.0,
         verbatim: bool = False,
-        ref_steps: Tuple = (1, 2, 3, 4, 5),
+        ref_steps: Tuple = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
     ):
         """Summary
 
@@ -177,24 +178,6 @@ class ParallelNpmpPreprocessor(NpmpPreprocessor):
             self.save_features(file, mocap_features, "clip_0")
 
 
-def parallel_submit():
-    """Submit batch preprocessing job to hpc."""
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
-        "stac_path",
-        help="Path to stac data containing reference trajectories.",
-    )
-    parser.add_argument(
-        "save_folder",
-        help="Path to .h5 file in which to save data.",
-    )
-    args = parser.parse_args()
-    dispatcher = NpmpPreprocessingDispatcher(**args.__dict__)
-    dispatcher.dispatch()
-
-
 def submit():
     """Submit single preprocessing job."""
     parser = argparse.ArgumentParser(
@@ -213,101 +196,21 @@ def submit():
     npmp_preprocessor.extract_features()
 
 
-def npmp_embed_preprocessing_single_batch():
+def npmp_embed_preprocessing_single_batch(batch_args_path):
     """CLI entrypoint to preprocess single batch.
 
     Parameters loaded from _batch_preprocessing_args.p
     """
     # Load in parameters to modify
-    with open("_batch_preprocessing_args.p", "rb") as file:
+    with open(batch_args_path, "rb") as file:
         batch_args = pickle.load(file)
-    task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
-    # task_id = 0
-    batch_args = batch_args[task_id]
-    npmp_preprocessor = ParallelNpmpPreprocessor(**batch_args)
-    npmp_preprocessor.extract_features()
-
-
-class NpmpPreprocessingDispatcher:
-
-    """Dispatch preprocessing jobs to a hpc.
-
-    Attributes:
-        clip_end (int): Last step in clip.
-        clip_length (int): Number of steps in clip.
-        end_steps (List): End steps for each batch.
-        save_folder (Text): Folder in which to save data.
-        stac_path (Text): Path to stac file containing reference.
-        start_steps (List): Start steps for each batch.
-    """
-
-    def __init__(
-        self,
-        stac_path: Text,
-        save_folder: Text,
-        clip_length: int = 2500,
-    ):
-        """Initialize NpmpPreprocessingDispatcher
-
-        Args:
-            stac_path (Text): Path to stac file containing reference.
-            save_folder (Text): Folder in which to save data.
-            clip_length (int, optional): Number of steps in clip.
-        """
-        self.stac_path = stac_path
-        self.save_folder = save_folder
-        if not os.path.exists(self.save_folder):
-            os.makedirs(self.save_folder)
-        self.clip_length = clip_length
-        self.clip_end = self.get_clip_end()
-
-        self.start_steps = np.arange(0, self.clip_end, self.clip_length)
-        self.end_steps = self.start_steps + self.clip_length
-        self.end_steps[-1] = self.clip_end
-        batch_args = []
-        for start, end in zip(self.start_steps, self.end_steps):
-            batch_args.append(
-                {
-                    "stac_path": self.stac_path,
-                    "save_file": os.path.join(self.save_folder, "%d.hdf5" % (start)),
-                    "start_step": start,
-                }
-            )
-            # print(batch_args)
-        self.save_batch_args(batch_args)
-
-    def get_clip_end(self) -> int:
-        """Get the last frame in the clip from the reference.
-
-        Returns:
-            int: End frame in clip.
-        """
-        with h5py.File(self.stac_path, "r") as file:
-            n_samples = file["qpos"][:].shape[0]
-        # data = loadmat(self.stac_path)
-        # n_samples = data["qpos"][:].shape[0]
-        # with open(self.stac_path, "rb") as f:
-        #     in_dict = pickle.load(f)
-        #     n_samples = in_dict["qpos"].shape[0]
-        return n_samples
-
-    def dispatch(self):
-        """Submit the job."""
-        cmd = "sbatch --wait --array=0-%d multi_job_embed_preprocessing.sh" % (
-            len(self.start_steps) - 1
-        )
-        # cmd = "sbatch --array=0-9 multi_job_embed_preprocessing.sh"
-        print(cmd)
-        sys.exit(os.WEXITSTATUS(os.system(cmd)))
-
-    def save_batch_args(self, batch_args: Dict):
-        """Save the batch arguments to file.
-
-        Args:
-            batch_args (Dict): Dictionary of arguments to batches.
-        """
-        with open("_batch_preprocessing_args.p", "wb") as f:
-            pickle.dump(batch_args, f)
+    # task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
+    # # task_id = 0
+    # batch_args = batch_args[task_id]
+    for i, args in enumerate(batch_args):
+        print("Preprocessing batch %d of %d" % (i, len(batch_args)), flush=True)
+        npmp_preprocessor = ParallelNpmpPreprocessor(**args)
+        npmp_preprocessor.extract_features()
 
 
 def get_mocap_features(
@@ -527,27 +430,15 @@ def compute_velocity_from_kinematics(
     return np.concatenate([qvel_translation, qvel_gyro, qvel_joints], axis=1)
 
 
-def merge_preprocessed_files():
-    """CLI Entrypoint to merge preprocessed files into a single dataset."""
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
-        "data_folder",
-        help="Path to folder with .hdf5 data.",
-    )
-    args = parser.parse_args()
-
-    files = [
-        f for f in os.listdir(args.data_folder) if (".hdf5" in f and "total" not in f)
-    ]
+def merge_preprocessed_files(data_folder):
+    files = [f for f in os.listdir(data_folder) if (".hdf5" in f and "total" not in f)]
     file_ids = np.argsort([int(f.split(".")[0]) for f in files])
     files = [files[i] for i in file_ids]
     print(files)
-    with h5py.File(os.path.join(args.data_folder, "total.hdf5"), "w") as save_file:
+    with h5py.File(os.path.join(data_folder, "total.hdf5"), "w") as save_file:
         for file in files:
             print(file)
-            with h5py.File(os.path.join(args.data_folder, file), "r") as chunk:
+            with h5py.File(os.path.join(data_folder, file), "r") as chunk:
                 clip_name = "clip_" + file.split(".")[0]
                 # fd = save_file.create_group(clip_name)
                 # fd = save_file.create_group('clip_0')

@@ -234,10 +234,20 @@ class Feeder:
         Returns:
             Dict: Action output dict
         """
-        action_output = {
-            self.tag + k: sess.graph.get_tensor_by_name(self.tag + v)
-            for k, v in self.actions.items()
-        }
+        try:
+            action_output = {
+                self.tag + k: sess.graph.get_tensor_by_name(self.tag + v)
+                for k, v in self.actions.items()
+            }
+        except KeyError:
+            # Use the alternate action tensor for the new LSTM experiments.
+            self.actions[
+                "action"
+            ] = "agent_0/step_1/reset_core_1/MultiLevelSamplerWithARPrior/MultivariateNormalDiag_CONSTRUCTED_AT_agent_0_step_1_reset_core_1_MultiLevelSamplerWithARPrior_actor_head/sample/chain_of_shift_of_scale_matvec_linear_operator/forward/shift/forward/add:0"
+            action_output = {
+                self.tag + k: sess.graph.get_tensor_by_name(self.tag + v)
+                for k, v in self.actions.items()
+            }
         return action_output
 
 

@@ -20,6 +20,7 @@ from system import System
 
 
 def set_up_experiment(params):
+    print(params["ref_steps"])
     system = System(
         ref_path=params["ref_path"],
         model_dir=params["model_dir"],
@@ -27,6 +28,7 @@ def set_up_experiment(params):
         stac_params=params["stac_params"],
         offset_path=params["offset_path"],
         start_step=0,
+        ref_steps=tuple(params["ref_steps"]),
         # start_step=357500,  # To test the end loop handling
         torque_actuators=params["torque_actuators"],
         latent_noise=params["latent_noise"],
@@ -64,7 +66,7 @@ def change_exp_model(exp):
 params = dispatch_embed.build_params("test_params.yaml")
 
 # Test MLP
-EXP = set_up_experiment(params[0])
+EXP = set_up_experiment(params[3])
 
 # Test LSTM
 # EXP = set_up_experiment(params[1])

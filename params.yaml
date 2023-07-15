@@ -1,70 +1,296 @@
 # Run for all of these folders.
 project_folders:
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_16_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_17_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_18_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_19_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_20_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_21_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_22_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_23_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_24_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_25_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_26_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_27_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_28_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_30_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_31_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_01_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_02_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_03_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_06_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_05_30_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_05_31_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_01_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_02_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_03_1
-- /n/home02/daldarondo/LabDir/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_06_1
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_21_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_22_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_22_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_22_3"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_23_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_23_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_23_3"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_24_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_24_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_24_3"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_25_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_25_3"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_26_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_26_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_26_3"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_27_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_27_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_27_3"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_28_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_28_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_28_3"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_29_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_29_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_30_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_30_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_31_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2020_12_31_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_01_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_01_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_02_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_02_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_04_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_04_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_05_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_05_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_06_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_06_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_07_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_07_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_08_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_09_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_09_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_10_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_10_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_11_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_11_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_20_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_22_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_23_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_24_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_25_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_26_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_27_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_28_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_29_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_01_30_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_02_07_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_02_08_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_02_11_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_02_12_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_02_15_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_02_19_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_02_21_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/art/2021_02_23_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_21_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_21_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_22_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_22_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_23_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_24_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_25_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_26_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_28_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_29_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_06_30_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_01_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_02_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_03_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_05_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_06_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_07_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_08_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_10_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_11_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_12_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_13_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_14_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_15_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_18_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/bud/2021_07_19_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_07_28_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_07_29_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_07_30_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_07_31_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_01_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_02_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_03_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_04_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_05_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_06_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_07_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_08_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_09_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_10_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_11_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_12_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_13_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_14_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_15_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_18_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_19_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_20_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_21_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_23_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_23_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_25_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_27_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_30_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_08_31_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_09_03_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_09_04_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_09_14_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_09_15_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_09_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_09_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/coltrane/2021_09_18_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_18_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_19_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_20_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_22_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_23_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_24_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_25_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_26_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_27_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_02_28_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_01_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_03_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_04_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_05_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_06_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_08_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_09_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_10_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_11_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_12_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_13_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_15_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_18_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_19_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_22_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/duke/2022_03_23_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/espie/2022_03_04_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/espie/2022_03_10_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/espie/2022_03_15_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/espie/2022_03_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/espie/2022_03_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/espie/2022_03_22_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_18_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_19_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_20_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_21_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_22_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_23_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_24_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_25_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_26_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_27_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_28_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_30_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_31_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_01_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_02_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_03_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_06_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_08_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_09_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_12_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_13_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_15_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_06_20_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_05_30_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_05_31_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_01_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_02_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_03_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_06_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_07_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_08_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_09_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_11_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_12_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_13_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_14_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_15_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_16_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_17_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_20_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_21_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_24_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_26_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_27_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/gerry/2022_06_29_1"
 ref_path: "npmp_preprocessing/total.hdf5"
 stac_params: "stac_params/params.yaml"
 offset_path: "stac/offset.p"
-save_dir: "npmp"
+save_dir: "npmp/encoder"
+
+ref_steps:
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    # - [1, 2, 3, 4, 5]
+    - [1,]
+    - [1, 2]
+    - [1, 2, 3]
+    - [1, 2, 3, 4, 5]
+    - [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
 is_lstm: 
-    - False
-    - False
-    - False
-    - False
-    - False
-    - False
-    - False
-    - False
-    - False
-    - True
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
+    # - False
     # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - False
+    # - False
+    # - False
+    # - False
     - True
     - True
     - True
-    - False
-    - False
-    - False
-    - False
+    - True
+    - True
 
     # - False
     # - False
 is_torque_actuators: 
-    - False
-    - False
-    - False
-    - False
-    - True
-    - True
-    - True
-    - True
-    - True
-    - True
+    # - False
+    # - False
+    # - False
+    # - False
     # - True
-    - True
-    - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
+    # - True
     - True
     - True
     - True
@@ -75,27 +301,31 @@ is_torque_actuators:
     # - False
 # Run for all of these models.
 model_dirs: 
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_1_final"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_2_final"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_final"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_4_final"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_1"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_2"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_3"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_4"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24184166_5"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_1"
-    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_2"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_3"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_4"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24186410_5"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_3"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_4"
-    - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_24189285_5"
-
-    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3"
-    # - "/n/holylfs02/LABS/olveczky_lab/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_no_noise"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_21380833_1_final"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_21380833_2_final"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_final"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_21380833_4_final"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24184166_1"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24184166_2"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24184166_3"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24184166_4"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24184166_5"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24186410_1"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24186410_2"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24186410_3"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24186410_4"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24186410_5"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24189285_2"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24189285_3"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24189285_4"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_24189285_5"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_58765502_1"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_58765502_2"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_58765502_3"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_58765502_4"
+    - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_58765502_5"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3"
+    # - "/n/holylabs/LABS/olveczky_lab/holylfs02/Diego/data/dm/comic_models/rodent_tracking_model_21380833_3_no_noise"
 
 test: False
 

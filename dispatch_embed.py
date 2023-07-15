@@ -8,6 +8,7 @@ import argparse
 from typing import Text, List, Dict, Tuple, Union
 import subprocess
 import time
+from pathlib import Path
 
 N_PROJECT_FOLDERS_SIMULTANEOUSLY = 1
 
@@ -34,12 +35,12 @@ MERGE_SCRIPT = (
     lambda out_folder, job_id: f"""#!/bin/bash
 #SBATCH --job-name=mergeNPMP
 #SBATCH --dependency=afterok:{job_id}
-#SBATCH --mem=20000
+#SBATCH --mem=30000
 #SBATCH -t 0-01:00
 #SBATCH -N 1
 #SBATCH -c 1
-# # SBATCH --output=/dev/null 
-# # SBATCH --error=/dev/null
+# #SBATCH --output=/dev/null 
+# #SBATCH --error=/dev/null
 #SBATCH -p olveczky,shared,cox
 #SBATCH --exclude=holy2c18111 #seasmicro25 was removed
 #SBATCH --constraint="intel&avx2"
@@ -251,9 +252,21 @@ def build_params(param_path: Text) -> List[Dict]:
     # total_params = [
     #     p
     #     for p in total_params
-    #     if not os.path.exists(os.path.join(p["save_dir"], "logs", "data.hdf5"))
+    #     if not (Path(p["save_dir"]) / "logs" / "data.hdf5").exists()
     # ]
-    return total_params
+    # p = total_params
+    p = []
+    for param in total_params:
+        if (
+            param["save_dir"]
+            == "/n/holylabs/LABS/olveczky_lab/holylfs02/Everyone/dannce_rig/dannce_ephys/freddie/2022_05_18_1/npmp/encoder/rodent_tracking_model_24189285_2"
+        ):
+            continue
+        path = Path(param["save_dir"]) / "logs" / "data.hdf5"
+        if not path.exists():
+            p.append(param.copy())
+            print(path, flush=True)
+    return p
 
 
 def build_params_for_session(param_path: Text, project_folders: List) -> List[Dict]:
@@ -269,7 +282,6 @@ def build_params_for_session(param_path: Text, project_folders: List) -> List[Di
     params = load_params(param_path)
     params["project_folders"] = project_folders
     total_params = setup_job_params(params)
-    import pdb
 
     return total_params
 
@@ -279,17 +291,19 @@ def setup_job_params(params):
 
     # Cycle through project folders and models.
     for project_folder in params["project_folders"]:
-        for n_model, (model, lstm, torque) in enumerate(
+        for n_model, (model, lstm, torque, ref_steps) in enumerate(
             zip(
                 params["model_dirs"],
                 params["is_lstm"],
                 params["is_torque_actuators"],
+                params["ref_steps"],
             )
         ):
             job_params = {
                 "model_dir": model,
                 "lstm": lstm,
                 "torque_actuators": torque,
+                "ref_steps": ref_steps,
             }
             for field in ["ref_path", "stac_params", "offset_path"]:
                 job_params[field] = os.path.join(project_folder, params[field])
@@ -341,6 +355,7 @@ def main():
     batch_args_file = os.path.splitext(param_path)[0] + "_batch_args.p"
     with open(batch_args_file, "wb") as f:
         pickle.dump(params, f)
+
     script = f"""#!/bin/bash
 #SBATCH --job-name=submit_projects
 # Job name
@@ -351,14 +366,14 @@ def main():
 #SBATCH --array=0-{len(params) - 1}%20
 #SBATCH -N 1
 #SBATCH -c 1
-#SBATCH -p olveczky,shared
+#SBATCH -p olveczky,shared,cox
 source ~/.bashrc
 setup_miniconda
 source activate tracked_analysis
 python -c "import dispatch_embed; dispatch_embed.submit_project('{batch_args_file}')"
 wait
 """
-    slurm_submit(script)
+    # slurm_submit(script)
 
 
 def submit_project(batch_args_file: Text):

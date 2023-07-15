@@ -168,6 +168,7 @@ def npmp_embed_single_batch(batch_file: str):
         ref_path=batch_args["ref_path"],
         model_dir=batch_args["model_dir"],
         dataset=batch_args["dataset"],
+        ref_steps=tuple(batch_args["ref_steps"]),
         stac_params=batch_args["stac_params"],
         offset_path=batch_args["offset_path"],
         start_step=batch_args["start_step"],
